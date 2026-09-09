@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IpCamHack v3.0</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      background: #0a0e0f;
+      color: #00ffc8;
+      font-family: 'Courier New', monospace;
+      min-height: 100vh;
+      padding: 16px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #111a1c; }
+    ::-webkit-scrollbar-thumb { background: #00ffc8; border-radius: 4px; }
+
+    .app {
+      max-width: 1400px;
+      width: 100%;
+      background: #0f1719;
+      border: 1px solid #00ffc833;
+      border-radius: 18px;
+      padding: 24px 28px;
+      box-shadow: 0 0 60px #00ffc808, inset 0 0 80px #00ffc804;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #00ffc822;
+      padding-bottom: 14px;
+      margin-bottom: 22px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .header .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .header .brand h1 {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      background: linear-gradient(135deg, #00ffc8, #00b894);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 30px #00ffc833;
+    }
+    .header .brand .badge {
+      background: #00ffc822;
+      border: 1px solid #00ffc866;
+      border-radius: 30px;
+      padding: 4px 14px;
+      font-size: 12px;
+      letter-spacing: 1px;
+      color: #00ffc8;
+    }
+    .header .credit {
+      font-size: 13px;
+      color: #7fa8a4;
+      text-align: right;
+      line-height: 1.5;
+    }
+    .header .credit strong {
+      color: #00ffc8;
+      font-weight: 600;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      gap: 24px;
+    }
+    @media (max-width: 820px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    .sidebar {
+      background: #0c1416;
+      border-radius: 14px;
+      padding: 18px 16px 20px;
+      border: 1px solid #00ffc815;
+    }
+    .sidebar .section-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #5f8f8a;
+      margin-bottom: 14px;
+      border-bottom: 1px solid #00ffc810;
+      padding-bottom: 8px;
+    }
+    .btn-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .btn {
+      background: transparent;
+      border: 1px solid #00ffc844;
+      color: #00ffc8;
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      letter-spacing: 0.3px;
+    }
+    .btn:hover {
+      background: #00ffc810;
+      border-color: #00ffc8;
+      box-shadow: 0 0 30px #00ffc810;
+      transform: translateX(4px);
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn .icon { font-size: 18px; width: 28px; text-align: center; }
+    .btn.primary {
+      background: #00ffc811;
+      border-color: #00ffc866;
+    }
+    .btn.primary:hover { background: #00ffc820; }
+    .btn.danger {
+      border-color: #ff6b6b55;
+      color: #ff6b6b;
+    }
+    .btn.danger:hover {
+      background: #ff6b6b10;
+      border-color: #ff6b6b;
+      box-shadow: 0 0 30px #ff6b6b10;
+    }
+    .btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+      transform: none !important;
+      box-shadow: none !important;
+    }
+    .btn .spinner {
+      display: none;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #00ffc833;
+      border-top: 2px solid #00ffc8;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-left: auto;
+    }
+    .btn.loading .spinner { display: inline-block; }
+    .btn.loading .btn-text { opacity: 0.6; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .country-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid #00ffc810;
+    }
+    .country-badge {
+      background: #00ffc808;
+      border: 1px solid #00ffc822;
+      border-radius: 30px;
+      padding: 2px 12px;
+      font-size: 10px;
+      color: #7fa8a4;
+      letter-spacing: 0.5px;
+    }
+    .country-badge.active {
+      border-color: #00ffc8;
+      color: #00ffc8;
+      background: #00ffc810;
+    }
+
+    .main {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .console {
+      background: #0a0e0f;
+      border-radius: 14px;
+      padding: 16px 18px;
+      border: 1px solid #00ffc815;
+      min-height: 380px;
+      max-height: 500px;
+      overflow-y: auto;
+      font-size: 13px;
+      line-height: 1.7;
+      font-family: 'Courier New', monospace;
+    }
+    .console .log-line {
+      padding: 2px 0;
+      border-bottom: 1px solid #00ffc804;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .console .log-line .time {
+      color: #5f8f8a;
+      margin-right: 10px;
+      opacity: 0.7;
+      font-size: 11px;
+    }
+    .console .log-line.info { color: #8ae6d0; }
+    .console .log-line.success { color: #00ffc8; }
+    .console .log-line.warning { color: #fdcb6e; }
+    .console .log-line.error { color: #ff6b6b; }
+    .console .log-line.highlight { color: #ffeaa7; font-weight: 600; }
+    .console .empty {
+      color: #3d6b66;
+      font-style: italic;
+      text-align: center;
+      padding: 40px 0;
+    }
+
+    .stats {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      background: #0c1416;
+      border-radius: 12px;
+      padding: 12px 18px;
+      border: 1px solid #00ffc815;
+      font-size: 13px;
+    }
+    .stats .stat-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .stats .stat-item .label { color: #5f8f8a; }
+    .stats .stat-item .value {
+      color: #00ffc8;
+      font-weight: 700;
+      font-size: 16px;
+    }
+    .stats .stat-item .value.yellow { color: #fdcb6e; }
+    .stats .stat-item .value.red { color: #ff6b6b; }
+
+    .valid-section {
+      background: #0c1416;
+      border-radius: 14px;
+      padding: 16px 18px;
+      border: 1px solid #00ffc815;
+    }
+    .valid-section .section-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #5f8f8a;
+      margin-bottom: 12px;
+    }
+    .valid-section .table-wrap { overflow-x: auto; }
+    .valid-section table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .valid-section table th {
+      text-align: left;
+      color: #5f8f8a;
+      font-weight: 400;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 6px 10px 8px 0;
+      border-bottom: 1px solid #00ffc810;
+    }
+    .valid-section table td {
+      padding: 6px 10px 6px 0;
+      border-bottom: 1px solid #00ffc808;
+      color: #8ae6d0;
+      font-size: 12px;
+    }
+    .valid-section table td .creds {
+      color: #ffeaa7;
+      font-weight: 600;
+      font-size: 12px;
+    }
+    .valid-section .empty-msg {
+      color: #3d6b66;
+      font-style: italic;
+      padding: 16px 0;
+      text-align: center;
+    }
+
+    @media (max-width: 600px) {
+      .app { padding: 14px; }
+      .header .brand h1 { font-size: 20px; }
+      .header .credit { font-size: 11px; }
+      .btn { font-size: 12px; padding: 10px 12px; }
+      .console { font-size: 12px; min-height: 260px; max-height: 360px; }
+    }
+
+    .glitch {
+      animation: glitch 4s infinite;
+    }
+    @keyframes glitch {
+      0%, 90%, 100% { opacity: 1; transform: translate(0); }
+      92% { opacity: 0.8; transform: translate(-1px, 1px); }
+      94% { opacity: 1; transform: translate(1px, -1px); }
+      96% { opacity: 0.9; transform: translate(-1px, 0); }
+    }
+    .scanning-cursor::after {
+      content: '█';
+      animation: blink 0.9s step-end infinite;
+      color: #00ffc8;
+    }
+    @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0;} }
+
+    .tooltip {
+      font-size: 11px;
+      color: #5f8f8a;
+      padding: 2px 10px;
+      border: 1px dashed #00ffc822;
+      border-radius: 20px;
+      background: #00ffc804;
+      display: inline-block;
+      margin-left: 6px;
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header class="header">
+    <div class="brand">
+      <h1 class="glitch">⧩ IpCamHack</h1>
+      <span class="badge">v3.0</span>
+      <span class="tooltip">⚡ APNIC 44</span>
+    </div>
+    <div class="credit">
+      <strong>Humayun Shariar Himu</strong><br />
+      <span style="font-size:11px; color:#3d6b66;">research · security · ethics</span>
+    </div>
+  </header>
+
+  <div class="grid">
+    <aside class="sidebar">
+      <div class="section-title">◈ Control Panel</div>
+      <div class="btn-group">
+        <button class="btn primary" id="btnRandom">
+          <span class="icon">🎲</span>
+          <span class="btn-text">Random Scan</span>
+          <span class="spinner"></span>
+        </button>
+        <button class="btn primary" id="btnRange">
+          <span class="icon">🌐</span>
+          <span class="btn-text">IP Range Scan</span>
+          <span class="spinner"></span>
+        </button>
+        <button class="btn primary" id="btnValidate">
+          <span class="icon">🔐</span>
+          <span class="btn-text">Validate Saved</span>
+          <span class="spinner"></span>
+        </button>
+        <button class="btn" id="btnViewValid">
+          <span class="icon">📋</span>
+          <span class="btn-text">View Valid Cameras</span>
+        </button>
+        <button class="btn danger" id="btnClear">
+          <span class="icon">🗑</span>
+          <span class="btn-text">Clear Logs</span>
+        </button>
+      </div>
+      <div class="country-list" id="countryList">
+        <span class="country-badge active">BD</span>
+        <span class="country-badge">IN</span>
+        <span class="country-badge">CN</span>
+        <span class="country-badge">JP</span>
+        <span class="country-badge">SG</span>
+        <span class="country-badge">PK</span>
+        <span class="country-badge">AU</span>
+        <span class="country-badge">NZ</span>
+        <span class="country-badge">VN</span>
+        <span class="country-badge">TH</span>
+        <span class="country-badge">KR</span>
+        <span class="country-badge">MY</span>
+        <span class="country-badge">PH</span>
+        <span class="country-badge">ID</span>
+        <span class="country-badge">+30 more</span>
+      </div>
+      <div style="margin-top:12px; font-size:10px; color:#2d5550; border-top:1px solid #00ffc808; padding-top:12px; line-height:1.6;">
+        <span>⚡ threads: 500 &nbsp;·&nbsp; timeout: 150ms</span><br />
+        <span>📡 ports: 80,8080,443,554,37777,8000</span>
+      </div>
+    </aside>
+
+    <div class="main">
+      <div class="console" id="console">
+        <div class="empty">
+          ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯<br />
+          ⚡ IpCamHack v3.0 ready<br />
+          🧠 research mode · Humayun Shariar Himu<br />
+          ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯<br />
+          <span style="color:#3d6b66;">→ select an action from the panel</span>
+        </div>
+      </div>
+
+      <div class="stats" id="stats">
+        <div class="stat-item">
+          <span class="label">📡 scanned</span>
+          <span class="value" id="statScanned">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="label">📷 cameras found</span>
+          <span class="value yellow" id="statFound">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="label">✅ valid</span>
+          <span class="value" id="statValid">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="label">⏱ active</span>
+          <span class="value" id="statActive" style="font-size:13px; color:#74b9ff;">idle</span>
+        </div>
+      </div>
+
+      <div class="valid-section" id="validSection">
+        <div class="section-title">◈ Valid Credentials</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>IP</th>
+                <th>Port</th>
+                <th>Brand</th>
+                <th>Credentials</th>
+                <th>Geo</th>
+              </tr>
+            </thead>
+            <tbody id="validTableBody">
+              <tr><td colspan="5" class="empty-msg">no valid cameras yet</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ========== DOM রেফারেন্স ==========
+  const consoleEl = document.getElementById('console');
+  const statScanned = document.getElementById('statScanned');
+  const statFound = document.getElementById('statFound');
+  const statValid = document.getElementById('statValid');
+  const statActive = document.getElementById('statActive');
+  const validBody = document.getElementById('validTableBody');
+
+  const btnRandom = document.getElementById('btnRandom');
+  const btnRange = document.getElementById('btnRange');
+  const btnValidate = document.getElementById('btnValidate');
+  const btnViewValid = document.getElementById('btnViewValid');
+  const btnClear = document.getElementById('btnClear');
+
+  let isRunning = false;
+  let validCameras = [];
+
+  // ========== হেল্পার ফাংশন ==========
+  function getTime() {
+    return new Date().toLocaleTimeString('en-US', { hour12: false });
+  }
+
+  function log(message, type = 'info') {
+    const line = document.createElement('div');
+    line.className = `log-line ${type}`;
+    line.innerHTML = `<span class="time">[${getTime()}]</span> ${message}`;
+    consoleEl.appendChild(line);
+    consoleEl.scrollTop = consoleEl.scrollHeight;
+    const empty = consoleEl.querySelector('.empty');
+    if (empty) empty.remove();
+  }
+
+  function updateStats(scanned, found, valid) {
+    statScanned.textContent = scanned || 0;
+    statFound.textContent = found || 0;
+    statValid.textContent = valid || 0;
+  }
+
+  function setActive(text) {
+    statActive.textContent = text;
+  }
+
+  function setButtonsEnabled(enabled) {
+    [btnRandom, btnRange, btnValidate].forEach(b => b.disabled = !enabled);
+  }
+
+  function showLoading(btn) {
+    btn.classList.add('loading');
+    btn.disabled = true;
+  }
+
+  function hideLoading(btn) {
+    btn.classList.remove('loading');
+    btn.disabled = false;
+  }
+
+  function renderValidTable() {
+    if (validCameras.length === 0) {
+      validBody.innerHTML = `<tr><td colspan="5" class="empty-msg">no valid cameras yet</td></tr>`;
+      return;
+    }
+    let html = '';
+    validCameras.forEach(c => {
+      html += `<tr>
+                <td>${c.ip || '—'}</td>
+                <td>${c.port || '—'}</td>
+                <td>${c.brand || 'unknown'}</td>
+                <td class="creds">${c.username || 'admin'}:${c.password || '—'}</td>
+                <td style="font-size:11px; color:#74b9ff;">${c.geo || '—'}</td>
+              </tr>`;
+    });
+    validBody.innerHTML = html;
+  }
+
+  // ========== API কল ==========
+  async function apiCall(endpoint, data = null) {
+    const opts = {
+      method: data ? 'POST' : 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    };
+    if (data) opts.body = JSON.stringify(data);
+    const res = await fetch(`/api/${endpoint}`, opts);
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    return res.json();
+  }
+
+  // ========== অ্যাকশন ==========
+  async function actionRandom() {
+    if (isRunning) return;
+    isRunning = true;
+    setButtonsEnabled(false);
+    showLoading(btnRandom);
+    setActive('scanning random...');
+    log('🎲 Starting random camera scan across APNIC 44 countries...', 'info');
+
+    try {
+      const result = await apiCall('scan/random');
+      handleScanResult(result);
+    } catch (err) {
+      log(`❌ ${err.message}`, 'error');
+    } finally {
+      isRunning = false;
+      setButtonsEnabled(true);
+      hideLoading(btnRandom);
+      setActive('idle');
+    }
+  }
+
+  async function actionRange() {
+    if (isRunning) return;
+    const range = prompt('Enter IP range (e.g. 192.168.1.0/24 or 192.168.1.1-192.168.1.254)');
+    if (!range || range.trim() === '') return;
+    isRunning = true;
+    setButtonsEnabled(false);
+    showLoading(btnRange);
+    setActive(`scanning ${range}...`);
+    log(`🌐 Scanning IP range: ${range}`, 'info');
+
+    try {
+      const result = await apiCall('scan/range', { range });
+      handleScanResult(result);
+    } catch (err) {
+      log(`❌ ${err.message}`, 'error');
+    } finally {
+      isRunning = false;
+      setButtonsEnabled(true);
+      hideLoading(btnRange);
+      setActive('idle');
+    }
+  }
+
+  async function actionValidate() {
+    if (isRunning) return;
+    isRunning = true;
+    setButtonsEnabled(false);
+    showLoading(btnValidate);
+    setActive('validating saved...');
+    log('🔐 Validating credentials from saved cameras...', 'info');
+
+    try {
+      const result = await apiCall('validate');
+      if (result.valid && result.valid.length > 0) {
+        result.valid.forEach(v => {
+          validCameras.push(v);
+          log(`✅ VALID: ${v.ip}:${v.port}  ${v.username}:${v.password}  [${v.brand}]  ${v.geo || ''}`, 'success');
+        });
+        renderValidTable();
+        updateStats(result.stats?.scanned || 0, result.stats?.found || 0, validCameras.length);
+      } else {
+        log('ℹ️ No new valid cameras found.', 'warning');
+      }
+    } catch (err) {
+      log(`❌ ${err.message}`, 'error');
+    } finally {
+      isRunning = false;
+      setButtonsEnabled(true);
+      hideLoading(btnValidate);
+      setActive('idle');
+    }
+  }
+
+  async function actionViewValid() {
+    try {
+      const result = await apiCall('valid/list');
+      if (result.valid && result.valid.length > 0) {
+        validCameras = result.valid;
+        renderValidTable();
+        updateStats(result.stats?.scanned || 0, result.stats?.found || 0, validCameras.length);
+        log(`📋 Loaded ${validCameras.length} valid cameras.`, 'info');
+      } else {
+        log('ℹ️ No valid cameras found.', 'warning');
+      }
+    } catch (err) {
+      log(`❌ ${err.message}`, 'error');
+    }
+  }
+
+  function actionClear() {
+    consoleEl.innerHTML = `<div class="empty">⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯<br />
+                          ⚡ console cleared<br />
+                          ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯<br />
+                          <span style="color:#3d6b66;">→ ready</span></div>`;
+    log('🗑 Console cleared.', 'warning');
+  }
+
+  function handleScanResult(result) {
+    if (!result) {
+      log('⚠️ No result returned.', 'warning');
+      return;
+    }
+    if (result.summary) {
+      log(`📊 ${result.summary}`, 'highlight');
+    }
+    if (result.found && result.found.length > 0) {
+      result.found.forEach(cam => {
+        const msg = `📷 FOUND: ${cam.ip}:${cam.port}  [${cam.brand || 'unknown'}]  ${cam.geo || ''}`;
+        log(msg, 'info');
+      });
+      if (result.valid) {
+        result.valid.forEach(v => {
+          validCameras.push(v);
+          log(`✅ VALID: ${v.ip}:${v.port}  ${v.username}:${v.password}  [${v.brand}]  ${v.geo || ''}`, 'success');
+        });
+        renderValidTable();
+      }
+      updateStats(result.stats?.scanned || 0, result.found.length, validCameras.length);
+    } else {
+      log('ℹ️ No cameras found in this scan.', 'warning');
+    }
+    if (result.error) {
+      log(`⚠️ ${result.error}`, 'error');
+    }
+  }
+
+  // ========== ইভেন্ট বাইন্ডিং ==========
+  btnRandom.addEventListener('click', actionRandom);
+  btnRange.addEventListener('click', actionRange);
+  btnValidate.addEventListener('click', actionValidate);
+  btnViewValid.addEventListener('click', actionViewValid);
+  btnClear.addEventListener('click', actionClear);
+
+  // স্টার্টআপে ভ্যালিড ক্যামেরা লোড
+  window.addEventListener('DOMContentLoaded', () => {
+    actionViewValid();
+    log('🔄 System initialized. Humayun Shariar Himu · IpCamHack v3.0', 'info');
+  });
+
+  // কীবোর্ড শর্টকাট
+  document.addEventListener('keydown', (e) => {
+    if (e.key === '1') btnRandom.click();
+    if (e.key === '2') btnRange.click();
+    if (e.key === '3') btnValidate.click();
+    if (e.key === '4') btnViewValid.click();
+    if (e.key === 'c' || e.key === 'C') btnClear.click();
+  });
+</script>
+</body>
+</html>

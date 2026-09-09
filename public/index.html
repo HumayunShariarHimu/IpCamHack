@@ -3,13 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>IpCamHack v3.0</title>
+  <title>IpCamHack </title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       background: #0a0e0f;
       color: #00ffc8;
@@ -398,7 +394,7 @@
         <span class="country-badge">+30 more</span>
       </div>
       <div style="margin-top:12px; font-size:10px; color:#2d5550; border-top:1px solid #00ffc808; padding-top:12px; line-height:1.6;">
-        <span>⚡ threads: 500 &nbsp;·&nbsp; timeout: 150ms</span><br />
+        <span>⚡ threads: 20 &nbsp;·&nbsp; timeout: 1500ms</span><br />
         <span>📡 ports: 80,8080,443,554,37777,8000</span>
       </div>
     </aside>
@@ -457,7 +453,6 @@
 </div>
 
 <script>
-  // ========== DOM রেফারেন্স ==========
   const consoleEl = document.getElementById('console');
   const statScanned = document.getElementById('statScanned');
   const statFound = document.getElementById('statFound');
@@ -474,7 +469,6 @@
   let isRunning = false;
   let validCameras = [];
 
-  // ========== হেল্পার ফাংশন ==========
   function getTime() {
     return new Date().toLocaleTimeString('en-US', { hour12: false });
   }
@@ -531,7 +525,6 @@
     validBody.innerHTML = html;
   }
 
-  // ========== API কল ==========
   async function apiCall(endpoint, data = null) {
     const opts = {
       method: data ? 'POST' : 'GET',
@@ -543,7 +536,6 @@
     return res.json();
   }
 
-  // ========== অ্যাকশন ==========
   async function actionRandom() {
     if (isRunning) return;
     isRunning = true;
@@ -600,8 +592,11 @@
       const result = await apiCall('validate');
       if (result.valid && result.valid.length > 0) {
         result.valid.forEach(v => {
-          validCameras.push(v);
-          log(`✅ VALID: ${v.ip}:${v.port}  ${v.username}:${v.password}  [${v.brand}]  ${v.geo || ''}`, 'success');
+          const exists = validCameras.some(c => c.ip === v.ip && c.port === v.port);
+          if (!exists) {
+            validCameras.push(v);
+            log(`✅ VALID: ${v.ip}:${v.port}  ${v.username}:${v.password}  [${v.brand}]  ${v.geo || ''}`, 'success');
+          }
         });
         renderValidTable();
         updateStats(result.stats?.scanned || 0, result.stats?.found || 0, validCameras.length);
@@ -657,8 +652,11 @@
       });
       if (result.valid) {
         result.valid.forEach(v => {
-          validCameras.push(v);
-          log(`✅ VALID: ${v.ip}:${v.port}  ${v.username}:${v.password}  [${v.brand}]  ${v.geo || ''}`, 'success');
+          const exists = validCameras.some(c => c.ip === v.ip && c.port === v.port);
+          if (!exists) {
+            validCameras.push(v);
+            log(`✅ VALID: ${v.ip}:${v.port}  ${v.username}:${v.password}  [${v.brand}]  ${v.geo || ''}`, 'success');
+          }
         });
         renderValidTable();
       }
@@ -671,20 +669,17 @@
     }
   }
 
-  // ========== ইভেন্ট বাইন্ডিং ==========
   btnRandom.addEventListener('click', actionRandom);
   btnRange.addEventListener('click', actionRange);
   btnValidate.addEventListener('click', actionValidate);
   btnViewValid.addEventListener('click', actionViewValid);
   btnClear.addEventListener('click', actionClear);
 
-  // স্টার্টআপে ভ্যালিড ক্যামেরা লোড
   window.addEventListener('DOMContentLoaded', () => {
     actionViewValid();
     log('🔄 System initialized. Humayun Shariar Himu · IpCamHack v3.0', 'info');
   });
 
-  // কীবোর্ড শর্টকাট
   document.addEventListener('keydown', (e) => {
     if (e.key === '1') btnRandom.click();
     if (e.key === '2') btnRange.click();

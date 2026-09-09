@@ -1,0 +1,17 @@
+{
+  "name": "ipcamhack",
+  "version": "3.0.0",
+  "description": "IpCamHack - IP Camera Penetration Testing Tool (Research Purpose)",
+  "main": "api/index.js",
+  "scripts": {
+    "start": "node api/index.js",
+    "dev": "nodemon api/index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}

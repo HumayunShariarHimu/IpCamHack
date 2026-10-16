@@ -125,6 +125,18 @@ tbody tr:hover{background:#ffffff07}
     <div id="geoCountryMatch" class="hint" style="margin-bottom:0"></div>
   </section>
 </section>
+
+<section class="card" style="margin-top:14px">
+ <div class="section-head"><div><h3>Explicit target assessment</h3><div class="tag">Public IPs · bounded · permission required</div></div><span class="tag">04 / Research</span></div>
+ <p class="hint">Enter only specific public IPv4 addresses you own or have written permission to assess. Maximum 20 targets per run. No random IP generation, range expansion, or login attempts.</p>
+ <form id="targetsForm">
+  <label class="field-label" for="targetIps">Target IPv4 addresses (one per line or comma-separated)</label>
+  <textarea class="field" id="targetIps" rows="4" placeholder="203.0.113.10&#10;198.51.100.20" spellcheck="false" style="resize:vertical"></textarea>
+  <label class="check"><input id="targetAuthorized" type="checkbox" required><span>I own every target listed or have explicit written authorization to assess them.</span></label>
+  <button class="btn primary full" id="targetScanBtn" type="submit">Run authorized target checks</button>
+ </form>
+</section>
+
 <section class="card" style="margin-top:14px">
   <div class="section-head"><div><h3>Scan history</h3><div class="tag">Saved in this browser on this device</div></div><button class="btn danger" id="clearHistory" type="button">Clear history</button></div>
   <div id="historyList" class="history-list"><div class="empty" style="padding:20px">No saved scans yet.</div></div>
@@ -183,6 +195,22 @@ $('geoForm').addEventListener('submit',async e=>{
  catch(err){$('geoOutput').innerHTML='<div class="empty" style="grid-column:1/-1;padding:20px">'+escapeHtml(err.message||'Lookup failed.')+'</div>';$('geoCountryMatch').textContent='';toast(err.message||'Lookup failed.',true);}
  finally{btn.disabled=false;btn.textContent='Look up IP details';}
 });
+
+$('targetsForm').addEventListener('submit',async e=>{
+ e.preventDefault();
+ if(!$('targetAuthorized').checked){toast('Confirm authorization for every target.',true);return;}
+ const ips=$('targetIps').value.split(/[\\s,;]+/).map(v=>v.trim()).filter(Boolean);
+ if(!ips.length||ips.length>20){toast('Enter between 1 and 20 explicit IPv4 addresses.',true);return;}
+ const btn=$('targetScanBtn');btn.disabled=true;btn.textContent='Assessing targets…';setStatus('Checking explicit authorized targets…');
+ try{
+  const response=await fetch('/api/scan/targets',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ips,countries:selectedCountries(),authorized:true})});
+  const data=await response.json();if(!response.ok)throw new Error(data.error||'Target assessment failed.');
+  results=data.found||[];render();updateStats(data.stats||{});saveHistory({range:'Explicit targets: '+ips.length,at:new Date().toLocaleString(),scanned:data.stats?.scanned||ips.length,found:results.length,results});
+  $('lastScan').textContent='Target assessment · '+new Date(data.stats.lastScanAt).toLocaleString();setStatus('Complete · '+(data.stats.scanned||ips.length)+' explicit targets checked');toast(data.summary||'Assessment complete.');
+ }catch(err){toast(err.message||'Target assessment failed.',true);setStatus('Target assessment failed.');}
+ finally{btn.disabled=false;btn.textContent='Run authorized target checks';}
+});
+
 $('clearHistory').addEventListener('click',()=>{scanHistory=[];try{localStorage.removeItem(HISTORY_KEY);}catch(_){}renderHistory();toast('Browser scan history cleared.');});
 try{const saved=JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]');if(Array.isArray(saved))scanHistory=saved.filter(x=>x&&typeof x.range==='string'&&Array.isArray(x.results)).slice(0,20);}catch(_){scanHistory=[];}
 renderHistory();loadCountries();

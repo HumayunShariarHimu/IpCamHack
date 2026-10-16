@@ -7,7 +7,7 @@ A monochrome, animated dashboard for authorized IP-camera/network inventory and 
 - Premium black-and-white cyber-terminal UI with subtle animated grid/scanlines and reduced-motion support.
 - IPv4 single-host, CIDR (/24 to /32), and explicit address-range inputs.
 - Bounded read-only TCP checks for common web and camera-service ports, plus passive HTTP banner and camera-brand fingerprinting (Hikvision, Dahua, TP-Link, Xiaomi, Axis, Sony, Panasonic, Bosch, Samsung, Vivotek, Reolink, Amcrest, Ubiquiti and Hanwha). No login attempts or stream access.
-- Filterable results, scan statistics, clear action, CSV export, and health endpoint.
+- Filterable results, scan statistics, clear action, CSV and structured JSON research-report export, and health endpoint.
 - Restored APNIC country-code selector (45 entries) with select/deselect controls.
 - Manual public IPv4 geolocation lookup (country, region, city, ISP, ASN, coordinates) with country-selection comparison.
 - Bounded authorized public IPv4 range assessment (single IP, explicit range, or CIDR /24–/32; maximum 256 addresses) with explicit authorization confirmation and optional country-code filter.

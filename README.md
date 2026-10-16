@@ -8,7 +8,7 @@ A monochrome, animated dashboard for authorized IP-camera/network inventory and 
 - IPv4 single-host, CIDR (/24 to /32), and explicit address-range inputs.
 - Bounded read-only TCP checks for common web and camera-service ports.
 - Filterable results, scan statistics, clear action, CSV export, and health endpoint.
-- Restored APNIC 44-country selector with select/deselect controls.
+- Restored APNIC country-code selector (45 entries) with select/deselect controls.
 - Manual public IPv4 geolocation lookup (country, region, city, ISP, ASN, coordinates) with country-selection comparison.
 - Bounded assessment of up to 20 explicitly supplied public IPv4 addresses with a required authorization confirmation and optional country-code filter; it checks ports only and does not attempt authentication.
 - Browser-local scan history (last 20 scans) with restore and clear controls; history remains on that browser/device.

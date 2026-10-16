@@ -57,6 +57,6 @@ The Vercel deployment can host the dashboard and health/status API, but it canno
 - `POST /api/scan/targets` — bounded checks for 1–20 explicitly supplied public IPv4 addresses; JSON body: `{"ips":["8.8.8.8"],"countries":["US"],"authorized":true}`. Requires explicit authorization confirmation and does not accept CIDRs, random targets, or credentials.
 - `POST /api/clear` — clear in-memory results.
 
-Scan history is stored in the browser's local storage and does not sync between devices. Geolocation lookups send the entered public IP to ipwho.is; do not submit an address you do not want shared with that provider. Country selection only compares the manually looked-up IP and never starts a country-wide scan.
+Scan history is stored in the browser's local storage and does not sync between devices. Geolocation lookups send the entered public IP to ipwho.is; do not submit an address you do not want shared with that provider. Country selection compares manually looked-up IPs and filters only explicitly supplied assessment targets; it never starts a country-wide scan.
 
 Detected open ports are indicators only. An open port does not prove that a host is an IP camera, and this tool does not authenticate to devices.

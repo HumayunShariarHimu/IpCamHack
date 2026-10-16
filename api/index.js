@@ -305,7 +305,7 @@ app.post('/api/scan/range', async (req, res) => {
     const fullPortScan = req.body && req.body.fullPortScan === true;
     const results = (await mapLimit(hosts, fullPortScan ? 1 : MAX_CONCURRENT, ip => inspectHost(ip, fullPortScan ? FULL_TCP_PORTS : PORTS, MAX_PORT_CONCURRENT))).filter(Boolean);
     foundCameras = results;
-    stats = { scanned: hosts.length, found: results.length, lastScanAt: new Date().toISOString() };
+    stats = { scanned: countries.length ? countryFilterStats.matched : hosts.length, found: results.length, lastScanAt: new Date().toISOString() };
     return res.json({
       summary: 'Checked ' + hosts.length + ' authorized private-network address(es) across ' + (fullPortScan ? 'all 65,535 TCP ports' : PORTS.length + ' common service ports') + '; ' + results.length + ' host(s) responded on monitored ports.',
       found: results, stats
@@ -349,9 +349,9 @@ app.post('/api/scan/targets', async (req, res) => {
     });
     const results = candidates.filter(Boolean);
     foundCameras = results;
-    stats = { scanned: ips.length, found: results.length, lastScanAt: new Date().toISOString() };
+    stats = { scanned: countries.length ? countryFilterStats.matched : ips.length, found: results.length, lastScanAt: new Date().toISOString() };
     return res.json({
-      summary: 'Checked ' + ips.length + ' explicitly supplied, authorized target(s); ' + results.length + ' had one or more monitored ports open.',
+      summary: (countries.length && countryFilterStats.matched === 0 ? 'Country filter matched no targets. Check the selected countries and geolocation provider availability. ' : '') + 'Checked ' + (countries.length ? countryFilterStats.matched : ips.length) + ' explicitly supplied, authorized target(s) after country filtering; ' + results.length + ' had one or more monitored ports open.',
       found: results, stats, countryFilterStats
     });
   } catch (_error) {
@@ -403,7 +403,7 @@ app.post('/api/scan/public-range', async (req, res) => {
     foundCameras = results;
     stats = { scanned: hosts.length, found: results.length, lastScanAt: new Date().toISOString() };
     return res.json({
-      summary: 'Checked ' + hosts.length + ' explicitly scoped, authorized public address(es); ' + results.length + ' matched the selected countries and had monitored ports open.',
+      summary: (countries.length && countryFilterStats.matched === 0 ? 'Country filter matched no addresses. Check the selected countries and geolocation provider availability. ' : '') + 'Checked ' + (countries.length ? countryFilterStats.matched : hosts.length) + ' explicitly scoped, authorized public address(es) after country filtering; ' + results.length + ' had monitored ports open.',
       found: results, stats, countryFilterStats
     });
   } catch (_error) {

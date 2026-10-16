@@ -156,7 +156,7 @@ async function inspectHost(ip) {
 app.get('/api/health', (_req, res) => res.json({
   ok: true,
   service: 'IpCamHack private-network camera inventory',
-  version: '4.0.0',
+  version: '4.1.0',
   environment: process.env.VERCEL ? 'serverless' : 'local'
 }));
 app.get('/api/status', (_req, res) => res.json({ stats, results: foundCameras, scanInProgress }));
@@ -284,7 +284,7 @@ app.post('/api/scan/targets', async (req, res) => {
   }
   const ips = [...new Set(body.ips.map(v => String(v).trim()))];
   if (ips.some(ip => !isPublicIPv4(ip))) return res.status(400).json({ error: 'Only explicit public IPv4 targets are accepted by this endpoint. Use the private range scanner for LAN targets.' });
-  const countries = Array.isArray(body.countries) ? body.countries.filter(c => /^[A-Z]{2}$/.test(c)).slice(0, 44) : [];
+  const countries = Array.isArray(body.countries) ? body.countries.filter(c => /^[A-Z]{2}$/.test(c)).slice(0, 45) : [];
   scanInProgress = true;
   try {
     const candidates = await mapLimit(ips, 4, async ip => {

@@ -105,3 +105,21 @@ test('public-range inventory rejects private address space', async () => {
   });
   assert.equal(response.status, 400);
 });
+
+
+test('full TCP port scan requires one explicit private IPv4 host', async () => {
+  const response = await post('/api/scan/range', {
+    range: '192.168.1.0/24',
+    fullPortScan: true
+  });
+  assert.equal(response.status, 400);
+  assert.match((await response.json()).error, /one explicit private IPv4 host/i);
+});
+
+test('dashboard exposes a guarded full TCP scan option and explains country filter scope', async () => {
+  const response = await get('/');
+  const html = await response.text();
+  assert.match(html, /id="fullPortScan"/);
+  assert.match(html, /all 65,535 TCP ports/);
+  assert.match(html, /Country selection is a filter, not a target generator/);
+});

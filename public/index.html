@@ -129,7 +129,7 @@ button:focus-visible,input:focus-visible{box-shadow:0 0 0 3px #ffffff30}
 <section class="extras" aria-label="Country and geolocation tools">
   <section class="card">
     <div class="section-head"><div><h3>Country selector</h3><div class="tag">APNIC region catalog · 45 entries</div></div><span class="tag">02 / Region</span></div>
-    <p class="hint">Country selection is a filter, not a target generator. It applies only to explicitly supplied public IP/range assessments; it cannot scan an entire country. The private-LAN scan uses your entered local range.</p>
+    <p class="hint">Selected countries filter authorized public-range and explicit-target scans. Country selection is a filter, not a target generator: it cannot scan an entire country by itself. The private-LAN scan uses your entered local range.</p>
     <div class="actions"><button class="btn" id="selectCountries" type="button">Select all</button><button class="btn" id="clearCountries" type="button">Deselect all</button></div>
     <div class="country-grid" id="countryGrid" aria-label="Country selection"><span class="tag">Loading country list…</span></div>
     <div class="statusline"><span class="dot"></span><span id="countryStatus">Loading country catalog…</span></div>

@@ -87,6 +87,11 @@ tbody tr:hover{background:#ffffff07}
 .history-row .meta{color:#999}.history-row strong{color:#fff}
 @media(max-width:820px){.extras{grid-template-columns:1fr}.country-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
+
+/* Keyboard and high-contrast affordances for the monochrome interface */
+:focus-visible{outline:2px solid #fff;outline-offset:3px}
+button:focus-visible,input:focus-visible{box-shadow:0 0 0 3px #ffffff30}
+@media print{body,body:before,body:after{background:#fff!important;color:#000!important;animation:none!important}.card,.stat,.field,.table-wrap{background:#fff!important;color:#000!important;border-color:#777!important;box-shadow:none!important}th,td{background:#fff!important;color:#000!important;border-color:#bbb!important}.btn{display:none!important}}
 </style>
 </head>
 <body>
@@ -124,18 +129,6 @@ tbody tr:hover{background:#ffffff07}
     <div id="geoOutput" class="geo-result" aria-live="polite"><div class="empty" style="grid-column:1/-1;padding:20px">Enter an IP address to view available geolocation details.</div></div>
     <div id="geoCountryMatch" class="hint" style="margin-bottom:0"></div>
   </section>
-</section>
-
-<section class="card" style="margin-top:14px">
- <div class="section-head"><div><h3>Authorized public IP range</h3><div class="tag">Explicit scope · maximum 256 IPv4 addresses</div></div><span class="tag">04 / Range research</span></div>
- <p class="hint">Assess only a public IPv4 range you own or have written permission to test. Supports one IP, an explicit start-end range, or CIDR /24 through /32. The selected countries below filter results after geolocation; this does not generate random internet targets.</p>
- <form id="publicRangeForm">
-  <label class="field-label" for="publicRange">Authorized public IPv4 scope</label>
-  <input class="field" id="publicRange" name="range" placeholder="Your authorized public IP, range, or CIDR /24–/32" autocomplete="off" spellcheck="false" required>
-  <label class="check"><input id="publicRangeAuthorized" type="checkbox" required><span>I own this public IP range or have explicit written authorization to assess it.</span></label>
-  <button class="btn primary full" id="publicRangeBtn" type="submit">Run authorized public-range assessment</button>
-  <p class="hint" style="margin-top:12px;margin-bottom:0">Checks monitored TCP ports and passive HTTP banners only. No login attempts or camera-stream access. Hosted Vercel scanning remains disabled; run locally in your approved assessment environment.</p>
- </form>
 </section>
 
 <section class="card" style="margin-top:14px">
@@ -184,7 +177,7 @@ function renderHistory(){
  const root=$('historyList');if(!root)return;
  if(!scanHistory.length){root.innerHTML='<div class="empty" style="padding:20px">No saved scans yet.</div>';return;}
  root.innerHTML=scanHistory.map((item,i)=>'<div class="history-row"><div><strong>'+escapeHtml(item.range)+'</strong><div class="meta">'+escapeHtml(item.at)+' · '+item.scanned+' checked · '+item.found+' hosts</div></div><button class="btn" type="button" data-history="'+i+'">Restore</button></div>').join('');
- root.querySelectorAll('[data-history]').forEach(btn=>btn.addEventListener('click',()=>{const item=scanHistory[Number(btn.dataset.history)];if(!item)return;results=item.results||[];render();updateStats({scanned:item.scanned,found:item.found});if(Array.isArray(item.targets)){$('targetIps').value=item.targets.join('\n');setStatus('Explicit-target results restored · local browser copy');}else if(item.kind==='public-range'){$('publicRange').value=item.range;setStatus('Authorized public-range results restored · local browser copy');}else if(item.range.startsWith('Explicit targets: ')){setStatus('Explicit-target results restored · local browser copy');}else{$('range').value=item.range;setStatus('Private-range results restored · local browser copy');}$('lastScan').textContent='Restored · '+item.at;toast('Saved scan results restored.');}));
+ root.querySelectorAll('[data-history]').forEach(btn=>btn.addEventListener('click',()=>{const item=scanHistory[Number(btn.dataset.history)];if(!item)return;results=item.results||[];render();updateStats({scanned:item.scanned,found:item.found});if(item.range.startsWith('Explicit targets: ')){setStatus('Explicit-target results restored · local browser copy');}else{$('range').value=item.range;setStatus('Private-range results restored · local browser copy');}$('lastScan').textContent='Restored · '+item.at;toast('Saved scan results restored.');}));
 }
 async function loadCountries(){
  try{
@@ -234,20 +227,6 @@ $('randomTargetSample').addEventListener('click',()=>{
  $('targetsForm').requestSubmit();
 });
 
-$('publicRangeForm').addEventListener('submit',async e=>{
- e.preventDefault();
- if(!$('publicRangeAuthorized').checked){toast('Confirm authorization for this entire range.',true);return;}
- const range=$('publicRange').value.trim();
- const btn=$('publicRangeBtn');btn.disabled=true;btn.textContent='Assessing scoped range…';setStatus('Checking explicitly authorized public range…');
- try{
-  const response=await fetch('/api/scan/public-range',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({range,countries:selectedCountries(),authorized:true})});
-  const data=await response.json();if(!response.ok)throw new Error(data.error||'Public-range assessment failed.');
-  results=data.found||[];render();updateStats(data.stats||{});saveHistory({range,kind:'public-range',at:new Date().toLocaleString(),scanned:data.stats?.scanned||0,found:results.length,results});
-  $('lastScan').textContent='Public range · '+new Date(data.stats.lastScanAt).toLocaleString();setStatus('Complete · '+(data.stats.scanned||0)+' scoped addresses checked');toast(data.summary||'Public-range assessment complete.');
- }catch(err){toast(err.message||'Public-range assessment failed.',true);setStatus('Public-range assessment failed.');}
- finally{btn.disabled=false;btn.textContent='Run authorized public-range assessment';}
-});
-
 $('targetsForm').addEventListener('submit',async e=>{
  e.preventDefault();
  if(!$('targetAuthorized').checked){toast('Confirm authorization for every target.',true);return;}
@@ -257,7 +236,7 @@ $('targetsForm').addEventListener('submit',async e=>{
  try{
   const response=await fetch('/api/scan/targets',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ips,countries:selectedCountries(),authorized:true})});
   const data=await response.json();if(!response.ok)throw new Error(data.error||'Target assessment failed.');
-  results=data.found||[];render();updateStats(data.stats||{});saveHistory({range:'Explicit targets: '+ips.length,targets:ips,kind:'targets',at:new Date().toLocaleString(),scanned:data.stats?.scanned||ips.length,found:results.length,results});
+  results=data.found||[];render();updateStats(data.stats||{});saveHistory({range:'Explicit targets: '+ips.length,at:new Date().toLocaleString(),scanned:data.stats?.scanned||ips.length,found:results.length,results});
   $('lastScan').textContent='Target assessment · '+new Date(data.stats.lastScanAt).toLocaleString();setStatus('Complete · '+(data.stats.scanned||ips.length)+' explicit targets checked');toast(data.summary||'Assessment complete.');
  }catch(err){toast(err.message||'Target assessment failed.',true);setStatus('Target assessment failed.');}
  finally{btn.disabled=false;btn.textContent='Run authorized target checks';}
@@ -275,7 +254,8 @@ $('scanForm').addEventListener('submit',async e=>{
  finally{btn.disabled=false;btn.innerHTML='⌕ &nbsp; Scan private range';}
 });
 $('clearBtn').addEventListener('click',async()=>{try{const r=await fetch('/api/clear',{method:'POST'});if(!r.ok)throw new Error('Clear request failed');results=[];render();updateStats({});$('lastScan').textContent='No scan performed yet';setStatus('Ready · results cleared');toast('Results cleared.');}catch(e){toast(e.message,true);}});
-$('filter').addEventListener('input',render);\n$('exportBtn').addEventListener('click',exportCsv);
+$('filter').addEventListener('input',render);
+$('exportBtn').addEventListener('click',exportCsv);
 (async()=>{try{const health=await fetch('/api/health');if(health.ok){const info=await health.json();if(info.environment==='serverless'){$('runtimeNote').textContent='Hosted mode detected. For LAN scanning, run this app locally on the same network as your cameras.';setStatus('Hosted dashboard · LAN scanning requires local mode.');}}const r=await fetch('/api/status');if(!r.ok)return;const data=await r.json();results=data.results||[];render();updateStats(data.stats||{});if(data.stats?.lastScanAt)$('lastScan').textContent='Last scan · '+new Date(data.stats.lastScanAt).toLocaleString();}catch(_){setStatus('API unavailable · start the local server to enable scanning.');}})();
 </script>
 </body></html>

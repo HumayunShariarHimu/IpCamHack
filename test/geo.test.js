@@ -39,3 +39,48 @@ test('geolocation rejects private and loopback addresses before any provider req
     assert.match((await response.json()).error, /public IPv4/i);
   }
 });
+
+test('explicit public-target assessment requires an authorization confirmation', async () => {
+  const response = await fetch(baseUrl + '/api/scan/targets', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ ips: ['8.8.8.8'], authorized: false })
+  });
+  assert.equal(response.status, 403);
+  assert.match((await response.json()).error, /authorization/i);
+});
+
+test('explicit target assessment rejects private targets and oversized target lists', async () => {
+  const privateResponse = await fetch(baseUrl + '/api/scan/targets', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ ips: ['192.168.1.1'], authorized: true })
+  });
+  assert.equal(privateResponse.status, 400);
+
+  const tooMany = Array.from({ length: 21 }, (_, i) => '8.8.' + Math.floor(i / 250) + '.' + (i + 1));
+  const limitResponse = await fetch(baseUrl + '/api/scan/targets', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ ips: tooMany, authorized: true })
+  });
+  assert.equal(limitResponse.status, 400);
+  assert.match((await limitResponse.json()).error, /1 to 20/i);
+});
+
+test('explicit target assessment is disabled in hosted serverless mode', async () => {
+  const original = process.env.VERCEL;
+  process.env.VERCEL = '1';
+  try {
+    const response = await fetch(baseUrl + '/api/scan/targets', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ips: ['8.8.8.8'], authorized: true })
+    });
+    assert.equal(response.status, 501);
+    assert.match((await response.json()).error, /hosted serverless/i);
+  } finally {
+    if (original === undefined) delete process.env.VERCEL;
+    else process.env.VERCEL = original;
+  }
+});

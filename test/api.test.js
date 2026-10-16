@@ -43,6 +43,15 @@ test('health endpoint reports a healthy service and defensive headers', async ()
   assert.equal((await response.json()).ok, true);
 });
 
+test('dashboard serves the JSON research-report export control', async () => {
+  const response = await get('/');
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /id="exportJsonBtn"/);
+  assert.match(html, /function exportJson\(/);
+  assert.match(html, /exportJsonBtn.*addEventListener/s);
+});
+
 test('country catalog includes Bangladesh and stable two-letter codes', async () => {
   const response = await get('/api/countries');
   assert.equal(response.status, 200);

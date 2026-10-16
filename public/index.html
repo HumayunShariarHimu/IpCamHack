@@ -170,7 +170,7 @@ function renderHistory(){
  const root=$('historyList');if(!root)return;
  if(!scanHistory.length){root.innerHTML='<div class="empty" style="padding:20px">No saved scans yet.</div>';return;}
  root.innerHTML=scanHistory.map((item,i)=>'<div class="history-row"><div><strong>'+escapeHtml(item.range)+'</strong><div class="meta">'+escapeHtml(item.at)+' · '+item.scanned+' checked · '+item.found+' hosts</div></div><button class="btn" type="button" data-history="'+i+'">Restore</button></div>').join('');
- root.querySelectorAll('[data-history]').forEach(btn=>btn.addEventListener('click',()=>{const item=scanHistory[Number(btn.dataset.history)];if(!item)return;results=item.results||[];render();updateStats({scanned:item.scanned,found:item.found});$('range').value=item.range;$('lastScan').textContent='Restored · '+item.at;setStatus('History restored · local browser copy');toast('Saved scan results restored.');}));
+ root.querySelectorAll('[data-history]').forEach(btn=>btn.addEventListener('click',()=>{const item=scanHistory[Number(btn.dataset.history)];if(!item)return;results=item.results||[];render();updateStats({scanned:item.scanned,found:item.found});if(item.range.startsWith('Explicit targets: ')){setStatus('Explicit-target results restored · local browser copy');}else{$('range').value=item.range;setStatus('Private-range results restored · local browser copy');}$('lastScan').textContent='Restored · '+item.at;toast('Saved scan results restored.');}));
 }
 async function loadCountries(){
  try{
@@ -199,7 +199,7 @@ $('geoForm').addEventListener('submit',async e=>{
 $('targetsForm').addEventListener('submit',async e=>{
  e.preventDefault();
  if(!$('targetAuthorized').checked){toast('Confirm authorization for every target.',true);return;}
- const ips=$('targetIps').value.split(/[\\s,;]+/).map(v=>v.trim()).filter(Boolean);
+ const ips=$('targetIps').value.split(/[\s,;]+/).map(v=>v.trim()).filter(Boolean);
  if(!ips.length||ips.length>20){toast('Enter between 1 and 20 explicit IPv4 addresses.',true);return;}
  const btn=$('targetScanBtn');btn.disabled=true;btn.textContent='Assessing targets…';setStatus('Checking explicit authorized targets…');
  try{

@@ -115,6 +115,7 @@ button:focus-visible,input:focus-visible{box-shadow:0 0 0 3px #ffffff30}
 <main class="layout">
 <section class="card"><div class="section-head"><h3>Scan configuration</h3><span class="tag">01 / Scope</span></div>
 <form id="scanForm"><label class="field-label" for="range">Private IP / CIDR / range</label><input class="field" id="range" name="range" value="192.168.1.0/24" autocomplete="off" spellcheck="false" required aria-describedby="rangeHint"><p id="rangeHint" class="hint">Examples: 192.168.1.12 · 192.168.1.0/24 · 10.0.0.10-10.0.0.40</p>
+<label class="check"><input id="fullPortScan" type="checkbox"><span>Full TCP port scan (1–65,535) — single private IPv4 host only; slower. Leave off for common network/camera service ports.</span></label>
 <label class="check"><input id="authorized" type="checkbox" required><span>I own this network or have explicit permission to run this inventory check.</span></label>
 <div class="actions"><button class="btn primary full" id="scanBtn" type="submit">⌕ &nbsp; Scan private range</button><button class="btn danger full" id="clearBtn" type="button">Clear results</button></div><p class="hint" id="runtimeNote" style="margin-top:14px;margin-bottom:0">Local mode is required to scan your own LAN. Hosted deployments cannot reach your private network.</p></form>
 <div class="statusline"><span class="dot"></span><span id="status">Ready · no scan running</span></div>
@@ -128,7 +129,7 @@ button:focus-visible,input:focus-visible{box-shadow:0 0 0 3px #ffffff30}
 <section class="extras" aria-label="Country and geolocation tools">
   <section class="card">
     <div class="section-head"><div><h3>Country selector</h3><div class="tag">APNIC region catalog · 45 entries</div></div><span class="tag">02 / Region</span></div>
-    <p class="hint">Selected countries filter authorized public-range and explicit-target scans. They do not apply to private LAN scans or trigger a scan by themselves.</p>
+    <p class="hint">Country selection is a filter, not a target generator. It applies only to explicitly supplied public IP/range assessments; it cannot scan an entire country. The private-LAN scan uses your entered local range.</p>
     <div class="actions"><button class="btn" id="selectCountries" type="button">Select all</button><button class="btn" id="clearCountries" type="button">Deselect all</button></div>
     <div class="country-grid" id="countryGrid" aria-label="Country selection"><span class="tag">Loading country list…</span></div>
     <div class="statusline"><span class="dot"></span><span id="countryStatus">Loading country catalog…</span></div>
@@ -234,7 +235,7 @@ async function loadCountries(){
  }catch(e){$('countryGrid').innerHTML='<span class="tag">Could not load countries. Check the API.</span>';$('countryStatus').textContent=e.message||'Country catalog unavailable';}
 }
 function selectedCountries(){return Array.from(document.querySelectorAll('#countryGrid input[type="checkbox"]:checked')).map(el=>el.value);}
-function updateCountryStatus(){const selected=selectedCountries();$('countryStatus').textContent=selected.length?selected.length+' selected: '+selected.join(', '):'No country filter · all supplied targets';}
+function updateCountryStatus(){const selected=selectedCountries();$('countryStatus').textContent=selected.length?selected.length+' selected: '+selected.join(', ')+' · applies to explicit public targets/range':'No country filter · all supplied targets';}
 function renderGeo(geo){
  const items=[['IP address',geo.ip],['Country',geo.country+' ('+geo.countryCode+')'],['Region',geo.region],['City',geo.city],['ISP',geo.isp],['ASN',geo.asn||'Unavailable'],['Latitude',geo.latitude==null?'Unavailable':geo.latitude],['Longitude',geo.longitude==null?'Unavailable':geo.longitude]];
  $('geoOutput').innerHTML=items.map(([label,value])=>'<div class="geo-item"><span>'+escapeHtml(label)+'</span><strong>'+escapeHtml(value)+'</strong></div>').join('');
@@ -310,8 +311,8 @@ renderHistory();loadCountries();
 
 $('scanForm').addEventListener('submit',async e=>{
  e.preventDefault();if(!$('authorized').checked){toast('Confirm authorization before scanning.',true);return;}
- const btn=$('scanBtn');btn.disabled=true;btn.textContent='Scanning…';setStatus('Checking private-network ports…');toast('Scan started. This may take a moment.');
- try{const response=await fetch('/api/scan/range',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({range:$('range').value.trim()})});const data=await response.json();if(!response.ok)throw new Error(data.error||'Request failed ('+response.status+')');results=data.found||[];saveHistory({range:$('range').value.trim(),at:new Date().toLocaleString(),scanned:data.stats?.scanned||0,found:results.length,results});render();updateStats(data.stats||{});$('lastScan').textContent='Last scan · '+new Date(data.stats.lastScanAt).toLocaleString();setStatus('Complete · '+(data.stats.scanned||0)+' addresses checked');toast(data.summary||'Scan complete.');
+ const fullPortScan=$('fullPortScan').checked;const range=$('range').value.trim();if(fullPortScan&&!/^\\d{1,3}(?:\\.\\d{1,3}){3}$/.test(range)){toast('Full TCP scan requires one private IPv4 address, not a range or CIDR.',true);return;}const btn=$('scanBtn');btn.disabled=true;btn.textContent='Scanning…';setStatus(fullPortScan?'Scanning all 65,535 TCP ports on one private host…':'Checking common private-network service ports…');toast(fullPortScan?'Full TCP scan started; it may take several minutes.':'Scan started. This may take a moment.');
+ try{const response=await fetch('/api/scan/range',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({range,fullPortScan})});const data=await response.json();if(!response.ok)throw new Error(data.error||'Request failed ('+response.status+')');results=data.found||[];saveHistory({range:$('range').value.trim(),at:new Date().toLocaleString(),scanned:data.stats?.scanned||0,found:results.length,results});render();updateStats(data.stats||{});$('lastScan').textContent='Last scan · '+new Date(data.stats.lastScanAt).toLocaleString();setStatus('Complete · '+(data.stats.scanned||0)+' addresses checked');toast(data.summary||'Scan complete.');
  }catch(err){toast(err.message||'Could not reach the API.',true);setStatus('Scan failed · check the API deployment and range.');}
  finally{btn.disabled=false;btn.innerHTML='⌕ &nbsp; Scan private range';}
 });

@@ -111,6 +111,87 @@ app.get('/api/health', (_req, res) => res.json({
   environment: process.env.VERCEL ? 'serverless' : 'local'
 }));
 app.get('/api/status', (_req, res) => res.json({ stats, results: foundCameras, scanInProgress }));
+
+const https = require('https');
+
+const APNIC_COUNTRIES = [
+  ['BD','Bangladesh'],['IN','India'],['CN','China'],['JP','Japan'],['SG','Singapore'],
+  ['PK','Pakistan'],['AU','Australia'],['NZ','New Zealand'],['VN','Vietnam'],['TH','Thailand'],
+  ['KR','South Korea'],['MY','Malaysia'],['PH','Philippines'],['ID','Indonesia'],['LK','Sri Lanka'],
+  ['NP','Nepal'],['KH','Cambodia'],['LA','Laos'],['MM','Myanmar'],['BN','Brunei'],
+  ['PG','Papua New Guinea'],['FJ','Fiji'],['SB','Solomon Islands'],['VU','Vanuatu'],['WS','Samoa'],
+  ['TO','Tonga'],['KI','Kiribati'],['TV','Tuvalu'],['MH','Marshall Islands'],['FM','Micronesia'],
+  ['PW','Palau'],['NR','Nauru'],['CK','Cook Islands'],['NU','Niue'],['TK','Tokelau'],
+  ['WF','Wallis and Futuna'],['AS','American Samoa'],['GU','Guam'],['MP','Northern Mariana Islands'],
+  ['VI','U.S. Virgin Islands'],['PR','Puerto Rico'],['UM','U.S. Minor Outlying Islands'],
+  ['HK','Hong Kong'],['MO','Macao'],['TW','Taiwan']
+];
+
+function isPublicIPv4(ip) {
+  if (net.isIP(ip) !== 4) return false;
+  const [a,b,c] = ip.split('.').map(Number);
+  if (a === 0 || a === 10 || a === 127 || a >= 224) return false;
+  if (a === 100 && b >= 64 && b <= 127) return false;
+  if (a === 169 && b === 254) return false;
+  if (a === 172 && b >= 16 && b <= 31) return false;
+  if (a === 192 && b === 168) return false;
+  if (a === 192 && b === 0 && c === 0) return false;
+  if (a === 192 && b === 0 && c === 2) return false;
+  if (a === 192 && b === 88 && c === 99) return false;
+  if (a === 198 && (b === 18 || b === 19)) return false;
+  if (a === 198 && b === 51 && c === 100) return false;
+  if (a === 203 && b === 0 && c === 113) return false;
+  return true;
+}
+
+function lookupGeo(ip) {
+  return new Promise((resolve, reject) => {
+    const request = https.get('https://ipwho.is/' + encodeURIComponent(ip), { timeout: 4500 }, response => {
+      let body = '';
+      response.setEncoding('utf8');
+      response.on('data', chunk => {
+        body += chunk;
+        if (body.length > 32768) request.destroy(new Error('Geolocation response too large.'));
+      });
+      response.on('end', () => {
+        try {
+          const data = JSON.parse(body);
+          if (response.statusCode !== 200 || data.success === false) {
+            return reject(new Error(data.message || 'Geolocation provider could not resolve this IP.'));
+          }
+          resolve({
+            ip,
+            country: data.country || 'Unknown',
+            countryCode: data.country_code || 'XX',
+            region: data.region || 'Unknown',
+            city: data.city || 'Unknown',
+            latitude: Number.isFinite(data.latitude) ? data.latitude : null,
+            longitude: Number.isFinite(data.longitude) ? data.longitude : null,
+            isp: data.connection && data.connection.isp ? data.connection.isp : 'Unknown',
+            asn: data.connection && data.connection.asn ? data.connection.asn : null,
+            checkedAt: new Date().toISOString()
+          });
+        } catch (_error) {
+          reject(new Error('Invalid response from geolocation provider.'));
+        }
+      });
+    });
+    request.on('timeout', () => request.destroy(new Error('Geolocation lookup timed out.')));
+    request.on('error', reject);
+  });
+}
+
+app.get('/api/countries', (_req, res) => res.json({ countries: APNIC_COUNTRIES.map(([code, name]) => ({ code, name })) }));
+app.get('/api/geo', async (req, res) => {
+  const ip = String(req.query.ip || '').trim();
+  if (net.isIP(ip) !== 4) return res.status(400).json({ error: 'Enter a valid IPv4 address.' });
+  if (!isPublicIPv4(ip)) return res.status(400).json({ error: 'Geo lookup accepts public IPv4 addresses only. Use the private-network scanner for local addresses.' });
+  try {
+    return res.json({ geo: await lookupGeo(ip) });
+  } catch (error) {
+    return res.status(502).json({ error: error.message || 'Geolocation lookup failed.' });
+  }
+});
 app.post('/api/scan/range', async (req, res) => {
   // A cloud function cannot reach the user's LAN; do not turn this endpoint into a private-network probe.
   if (process.env.VERCEL) {

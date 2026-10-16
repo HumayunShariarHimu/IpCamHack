@@ -326,12 +326,15 @@ app.post('/api/scan/targets', async (req, res) => {
   }
   const ips = [...new Set(body.ips.map(v => String(v).trim()))];
   if (ips.some(ip => !isPublicIPv4(ip))) return res.status(400).json({ error: 'Only explicit public IPv4 targets are accepted by this endpoint. Use the private range scanner for LAN targets.' });
-  const countries = Array.isArray(body.countries) ? body.countries.filter(c => /^[A-Z]{2}$/.test(c)).slice(0, 45) : [];
+  const countries = Array.isArray(body.countries) ? [...new Set(body.countries.filter(c => /^[A-Z]{2}$/.test(c)))] .slice(0, 45) : [];
+  const countryFilterStats = { selected: countries.length, matched: 0, excluded: 0, lookupFailed: 0 };
   scanInProgress = true;
   try {
     const candidates = await mapLimit(ips, 4, async ip => {
-      const geo = await lookupGeo(ip).catch(() => null);
-      if (countries.length && (!geo || !countries.includes(geo.countryCode))) return null;
+      const geo = countries.length ? await lookupGeo(ip).catch(() => null) : null;
+      if (countries.length && !geo) { countryFilterStats.lookupFailed++; return null; }
+      if (countries.length && !countries.includes(geo.countryCode)) { countryFilterStats.excluded++; return null; }
+      if (countries.length) countryFilterStats.matched++;
       const checks = await Promise.all(PORTS.map(async port => (await checkPort(ip, port)) ? port : null));
       const openPorts = checks.filter(Boolean);
       if (!openPorts.length) return null;
@@ -349,7 +352,7 @@ app.post('/api/scan/targets', async (req, res) => {
     stats = { scanned: ips.length, found: results.length, lastScanAt: new Date().toISOString() };
     return res.json({
       summary: 'Checked ' + ips.length + ' explicitly supplied, authorized target(s); ' + results.length + ' had one or more monitored ports open.',
-      found: results, stats
+      found: results, stats, countryFilterStats
     });
   } catch (_error) {
     return res.status(500).json({ error: 'The target assessment failed unexpectedly.' });
@@ -369,6 +372,7 @@ app.post('/api/scan/public-range', async (req, res) => {
     return res.status(400).json({ error: error.message || 'Invalid public range.' });
   }
   const countries = Array.isArray(body.countries) ? [...new Set(body.countries.filter(c => /^[A-Z]{2}$/.test(c)))].slice(0, 45) : [];
+  const countryFilterStats = { selected: countries.length, matched: 0, excluded: 0, lookupFailed: 0 };
   if (process.env.VERCEL && hosts.length > 8) {
     return res.status(400).json({ error: 'Hosted scans are limited to 8 explicit public IPv4 addresses per run. Run locally for ranges up to 256 addresses.' });
   }
@@ -378,7 +382,9 @@ app.post('/api/scan/public-range', async (req, res) => {
       let geo = null;
       if (countries.length) {
         geo = await lookupGeo(ip).catch(() => null);
-        if (!geo || !countries.includes(geo.countryCode)) return null;
+        if (!geo) { countryFilterStats.lookupFailed++; return null; }
+        if (!countries.includes(geo.countryCode)) { countryFilterStats.excluded++; return null; }
+        countryFilterStats.matched++;
       }
       const checks = await Promise.all(PORTS.map(async port => (await checkPort(ip, port)) ? port : null));
       const openPorts = checks.filter(Boolean);
@@ -398,7 +404,7 @@ app.post('/api/scan/public-range', async (req, res) => {
     stats = { scanned: hosts.length, found: results.length, lastScanAt: new Date().toISOString() };
     return res.json({
       summary: 'Checked ' + hosts.length + ' explicitly scoped, authorized public address(es); ' + results.length + ' matched the selected countries and had monitored ports open.',
-      found: results, stats
+      found: results, stats, countryFilterStats
     });
   } catch (_error) {
     return res.status(500).json({ error: 'The public-range assessment failed unexpectedly.' });

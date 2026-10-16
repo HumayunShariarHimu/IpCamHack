@@ -120,7 +120,7 @@ button:focus-visible,input:focus-visible{box-shadow:0 0 0 3px #ffffff30}
 <div class="statusline"><span class="dot"></span><span id="status">Ready · no scan running</span></div>
 <div class="hint" style="margin-top:18px;margin-bottom:0">Checks TCP ports commonly used by camera services. An open port is not proof that a device is a camera.</div>
 </section>
-<section class="card results-card"><div class="section-head"><div><h3>Detected services</h3><div class="tag" id="lastScan">No scan performed yet</div></div><div class="toolbar"><input class="field search" id="filter" placeholder="Filter IP, port, brand…" aria-label="Filter results"><button class="btn" id="cameraOnlyBtn" type="button" aria-pressed="false">Camera matches only</button><button class="btn" id="exportBtn" type="button">Export CSV</button></div></div>
+<section class="card results-card"><div class="section-head"><div><h3>Detected services</h3><div class="tag" id="lastScan">No scan performed yet</div></div><div class="toolbar"><input class="field search" id="filter" placeholder="Filter IP, port, brand…" aria-label="Filter results"><button class="btn" id="cameraOnlyBtn" type="button" aria-pressed="false">Camera matches only</button><button class="btn" id="exportBtn" type="button">Export CSV</button><button class="btn" id="exportJsonBtn" type="button">Export JSON</button></div></div>
 <div class="table-wrap"><table><thead><tr><th>Host</th><th>Open ports</th><th>Brand / service</th><th>Assessment</th><th>Checked</th></tr></thead><tbody id="rows"><tr><td colspan="5"><div class="empty"><div class="symbol">⌕</div><strong>Nothing scanned yet</strong><div>Configure an authorized private range to begin.</div></div></td></tr></tbody></table></div>
 <div class="foot"><span>Read-only TCP port checks</span><span id="resultCount">0 results</span></div></section>
 </main>
@@ -194,6 +194,22 @@ function render(){
 }
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function updateStats(stats){$('scanned').textContent=stats.scanned||0;$('found').textContent=stats.found||0;$('matches').textContent=results.filter(r=>r.possibleCamera).length;}
+function exportJson(){
+ if(!results.length){toast('There are no results to export.',true);return;}
+ const report={
+  schemaVersion:1,
+  tool:'IpCamHack',
+  generatedAt:new Date().toISOString(),
+  scope:'authorized passive service inventory',
+  summary:{resultCount:results.length,cameraPortMatches:results.filter(r=>r.possibleCamera).length},
+  results
+ };
+ const blob=new Blob([JSON.stringify(report,null,2)],{type:'application/json;charset=utf-8'});
+ const url=URL.createObjectURL(blob);const a=document.createElement('a');
+ a.href=url;a.download='ipcam-audit-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json';
+ document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+ toast('JSON research report prepared.');
+}
 function exportCsv(){if(!results.length){toast('There are no results to export.',true);return;}const quote=v=>'\"'+String(v).replace(/\"/g,'\"\"')+'\"';const lines=[['IP address','Open TCP ports','Brand','Service','Server header','Country','Country code','Camera-related port','Checked at'],...results.map(r=>[r.ip,r.openPorts.join('; '),r.brand||'Unknown',r.service||'',r.server||'',r.geo?.country||'',r.geo?.countryCode||'',r.possibleCamera?'Possible':'No',r.checkedAt])].map(row=>row.map(quote).join(',')).join('\r\n');const url=URL.createObjectURL(new Blob(['\ufeff'+lines],{type:'text/csv;charset=utf-8;'}));const a=document.createElement('a');a.href=url;a.download='ipcam-audit-'+new Date().toISOString().replace(/[:.]/g,'-')+'.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);toast('CSV export prepared.');}
 
 const HISTORY_KEY='ipcamhack.scanHistory.v1';
@@ -304,6 +320,7 @@ $('filter').addEventListener('input',render);
 $('cameraOnlyBtn').addEventListener('click',()=>{cameraOnly=!cameraOnly;$('cameraOnlyBtn').setAttribute('aria-pressed',String(cameraOnly));$('cameraOnlyBtn').textContent=cameraOnly?'Show all results':'Camera matches only';render();logActivity(cameraOnly?'Showing camera-related port matches only.':'Showing all detected services.');});
 $('clearActivityBtn').addEventListener('click',()=>{$('activityLog').replaceChildren();logActivity('Activity log cleared.');});
 $('exportBtn').addEventListener('click',exportCsv);
+$('exportJsonBtn').addEventListener('click',exportJson);
 (async()=>{try{const health=await fetch('/api/health');if(health.ok){const info=await health.json();if(info.environment==='serverless'){$('runtimeNote').textContent='Hosted mode detected. For LAN scanning, run this app locally on the same network as your cameras.';setStatus('Hosted dashboard · LAN scanning requires local mode.');}}const r=await fetch('/api/status');if(!r.ok)return;const data=await r.json();results=data.results||[];render();updateStats(data.stats||{});if(data.stats?.lastScanAt)$('lastScan').textContent='Last scan · '+new Date(data.stats.lastScanAt).toLocaleString();}catch(_){setStatus('API unavailable · start the local server to enable scanning.');}})();
 </script>
 </body></html>

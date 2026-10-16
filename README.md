@@ -6,7 +6,7 @@ A monochrome, animated dashboard for authorized IP-camera/network inventory and 
 
 - Premium black-and-white cyber-terminal UI with subtle animated grid/scanlines and reduced-motion support.
 - IPv4 single-host, CIDR (/24 to /32), and explicit address-range inputs.
-- Bounded read-only TCP checks for common web and camera-service ports, plus passive HTTP banner and camera-brand fingerprinting (Hikvision, Dahua, TP-Link, Xiaomi, Axis, Sony, Panasonic, Bosch, Samsung, Vivotek, Reolink, Amcrest, Ubiquiti and Hanwha). No login attempts or stream access.
+- Read-only TCP checks for an expanded common-service port set (web, camera, SSH, SMB, databases, RTSP and other diagnostics), plus a guarded full TCP port scan (1–65,535) for one explicitly authorized private IPv4 host per run; passive HTTP banner and camera-brand fingerprinting (Hikvision, Dahua, TP-Link, Xiaomi, Axis, Sony, Panasonic, Bosch, Samsung, Vivotek, Reolink, Amcrest, Ubiquiti and Hanwha). No login attempts or stream access.
 - Filterable results, scan statistics, clear action, CSV and structured JSON research-report export, and health endpoint.
 - Restored APNIC country-code selector (45 entries) with select/deselect controls.
 - Manual public IPv4 geolocation lookup (country, region, city, ISP, ASN, coordinates) with country-selection comparison.
@@ -22,7 +22,7 @@ A monochrome, animated dashboard for authorized IP-camera/network inventory and 
 
 - Use only devices, IP addresses, and ranges you own or are explicitly authorized to assess.
 - The authorization checkbox is an operator confirmation, not an authentication system or proof of ownership. Keep the service private to your lab; do not expose a local scanner directly to the public internet.
-- The private-LAN endpoint accepts private/loopback IPv4 only. Public-range and explicit-target endpoints require explicit targets and a confirmation flag; they do not generate random targets or attempt logins.
+- The private-LAN endpoint accepts private/loopback IPv4 only. Full TCP scanning is restricted to one private IPv4 host per run; common-port mode supports up to 256 addresses. Public-range and explicit-target endpoints require explicit targets and a confirmation flag; they do not generate random targets or attempt logins.
 - Public geolocation sends the entered IP to the configured external provider (ipwho.is). Avoid submitting addresses you do not want shared with that provider.
 - Findings are passive indicators, not proof of camera identity or a security verdict. Review results manually and record scope/authorization before testing.
 

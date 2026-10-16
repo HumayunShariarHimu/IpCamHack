@@ -11,11 +11,72 @@
 button,input{font:inherit}button{cursor:pointer}.shell{max-width:1180px;margin:auto;padding:28px 20px 44px}.top{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:28px}.brand{display:flex;align-items:center;gap:13px}.logo{display:grid;place-items:center;width:48px;height:48px;border-radius:15px;background:#183a45;color:var(--mint);font-size:24px;border:1px solid #2b5b62}.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.16em;color:var(--mint);font-weight:750}.brand h1{font-size:25px;letter-spacing:-.04em;margin:1px 0}.sub{color:var(--muted);font-size:13px}.pill{border:1px solid #326252;color:var(--mint);background:#102b2a;border-radius:30px;padding:7px 12px;font-size:12px;white-space:nowrap}
 .hero{display:grid;grid-template-columns:1.25fr .75fr;gap:18px;margin-bottom:18px}.card{background:linear-gradient(145deg,#122238,#0e1a2b);border:1px solid var(--line);border-radius:20px;padding:24px;box-shadow:0 12px 32px #0002}.hero h2{font-size:clamp(24px,4vw,36px);letter-spacing:-.045em;line-height:1.15;margin:10px 0 12px}.hero p{color:var(--muted);max-width:590px;margin:0}.safe-note{display:flex;gap:12px;align-items:flex-start;margin-top:22px;padding:13px 14px;border:1px solid #5a4b2e;border-radius:13px;background:#29251b;color:#f5d9a5;font-size:13px}.safe-note strong{display:block;color:#ffe7b6}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;align-content:stretch}.stat{background:#0b1727;border:1px solid var(--line);border-radius:15px;padding:17px;display:flex;flex-direction:column;justify-content:center}.stat span{font-size:12px;color:var(--muted)}.stat strong{font-size:29px;letter-spacing:-.04em;margin-top:5px}.mint{color:var(--mint)}.blue{color:var(--blue)}.layout{display:grid;grid-template-columns:340px 1fr;gap:18px}.section-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}.section-head h3{font-size:17px;margin:0}.tag{color:var(--muted);font-size:12px}.field-label{display:block;font-size:13px;color:#c6d5e8;font-weight:650;margin-bottom:8px}.field{width:100%;border:1px solid #34506f;border-radius:11px;background:#081524;color:var(--text);padding:12px 13px;outline:none}.field:focus{border-color:var(--mint);box-shadow:0 0 0 3px #59e1c022}.hint{font-size:12px;color:var(--muted);margin:8px 0 18px}.btn{border:1px solid #3b5b78;border-radius:11px;padding:11px 14px;background:#182c43;color:var(--text);font-weight:700;transition:transform .15s,border-color .15s}.btn:hover{border-color:var(--mint);transform:translateY(-1px)}.btn.primary{background:var(--mint);border-color:var(--mint);color:#05201c}.btn.danger{color:var(--red);background:#2c1b2a;border-color:#5e3545}.btn:disabled{opacity:.55;cursor:wait;transform:none}.actions{display:flex;gap:9px;flex-wrap:wrap}.full{width:100%}.check{display:flex;gap:10px;align-items:flex-start;color:var(--muted);font-size:12px;margin:16px 0}.check input{margin-top:4px;accent-color:var(--mint)}.statusline{display:flex;gap:9px;align-items:center;color:var(--muted);font-size:12px;margin-top:16px}.dot{width:8px;height:8px;border-radius:50%;background:var(--mint);box-shadow:0 0 12px #59e1c066}.results-card{min-width:0}.toolbar{display:flex;gap:10px;align-items:center}.search{max-width:210px}.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:13px}table{border-collapse:collapse;width:100%;min-width:520px;text-align:left}th,td{padding:13px 15px;border-bottom:1px solid #23374e}th{background:#0b1727;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.09em}td{font-size:13px}tr:last-child td{border-bottom:0}.ip{font-weight:750;color:var(--blue);font-variant-numeric:tabular-nums}.port{display:inline-block;padding:3px 7px;margin:2px;border-radius:6px;background:#17382f;color:var(--mint);font-size:11px}.empty{padding:45px 16px;text-align:center;color:var(--muted)}.empty .symbol{font-size:28px;margin-bottom:7px}.foot{display:flex;justify-content:space-between;gap:12px;margin-top:20px;color:#7388a4;font-size:12px}.toast{padding:12px 14px;margin:0 0 16px;border-radius:10px;background:#102a2c;border:1px solid #326252;color:var(--mint);display:none}.toast.error{background:#2d1c28;border-color:#63384a;color:#ffabb7}.toast.show{display:block}
 @media(max-width:820px){.hero{grid-template-columns:1fr}.layout{grid-template-columns:1fr}.stats{min-height:125px}.top{align-items:flex-start}.pill{display:none}}@media(max-width:480px){.shell{padding:18px 12px 30px}.card{padding:18px}.brand h1{font-size:21px}.stats{gap:6px}.stat{padding:12px}.stat strong{font-size:24px}.toolbar{align-items:stretch;flex-direction:column}.search{max-width:none}.foot{flex-direction:column}}
+
+/* Premium monochrome cyber terminal */
+:root{--bg:#030303;--panel:#0a0a0a;--panel2:#111;--line:#292929;--text:#f5f5f5;--muted:#999;--mint:#fff;--blue:#ddd;--warn:#ddd;--red:#fff}
+html{background:#030303;scroll-behavior:smooth}
+body{position:relative;isolation:isolate;background:#030303;color:#f5f5f5}
+body:before{content:"";position:fixed;inset:0;z-index:-2;pointer-events:none;background-image:linear-gradient(#ffffff09 1px,transparent 1px),linear-gradient(90deg,#ffffff09 1px,transparent 1px);background-size:38px 38px;mask-image:linear-gradient(to bottom,#0008,transparent 88%);animation:gridDrift 24s linear infinite}
+body:after{content:"";position:fixed;inset:0;z-index:10;pointer-events:none;background:repeating-linear-gradient(to bottom,transparent 0px,transparent 3px,#fff009 4px);opacity:.13;animation:scanline 9s linear infinite}
+::selection{background:#fff;color:#000}
+.shell{max-width:1280px}
+.top{border-bottom:1px solid #262626;padding-bottom:20px}
+.logo{background:#fff;color:#000;border:1px solid #fff;border-radius:12px;box-shadow:0 0 24px #fff2;animation:logoPulse 4s ease-in-out infinite}
+.eyebrow{color:#bcbcbc}
+.brand h1{color:#fff;text-shadow:0 0 18px #fff3;animation:titleGlitch 7s steps(1,end) infinite}
+.sub,.tag,.hint,.foot,.stat span{color:#969696}
+.card{background:linear-gradient(145deg,#101010,#070707);border-color:#303030;border-radius:14px;box-shadow:0 18px 55px #0009,inset 0 1px #ffffff08;position:relative;overflow:hidden}
+.card:before{content:"";position:absolute;left:0;top:0;width:42px;height:1px;background:#fff;box-shadow:0 0 14px #fff8}
+.hero h2{color:#fff;text-shadow:0 0 32px #fff1}
+.hero p{color:#aaa}
+.safe-note{border:1px solid #333;background:#0b0b0b;color:#c8c8c8;border-radius:9px}
+.safe-note strong{color:#fff}
+.stats{gap:9px}
+.stat{background:#050505;border-color:#292929;border-radius:10px;transition:border-color .2s,transform .2s}
+.stat:hover{border-color:#aaa;transform:translateY(-2px)}
+.stat strong,.mint,.blue,.ip{color:#fff!important}
+.layout{gap:14px}
+.section-head h3{color:#f7f7f7;letter-spacing:.01em}
+.field{background:#050505;border-color:#363636;border-radius:7px;color:#fff}
+.field:focus{border-color:#fff;box-shadow:0 0 0 2px #fff2}
+.btn{background:#111;border-color:#444;border-radius:7px;color:#eee;letter-spacing:.025em;text-transform:uppercase;font-size:11px}
+.btn:hover{border-color:#fff;box-shadow:0 0 22px #fff1;transform:translateY(-1px)}
+.btn.primary{background:#f4f4f4;color:#050505;border-color:#fff;box-shadow:0 0 22px #fff1}
+.btn.primary:hover{background:#fff;box-shadow:0 0 28px #fff3}
+.btn.danger{background:#101010;border-color:#555;color:#eee}
+.btn.danger:hover{border-color:#fff}
+.check{color:#aaa}
+.check input{accent-color:#fff}
+.dot{background:#fff;box-shadow:0 0 12px #fff8;animation:dotPulse 1.8s ease-in-out infinite}
+.table-wrap{border-color:#292929;border-radius:9px}
+th{background:#111;color:#999}
+th,td{border-bottom-color:#252525}
+td{color:#ddd}
+tr{transition:background .15s}
+tbody tr:hover{background:#ffffff07}
+.port{background:#191919;border:1px solid #383838;color:#fff;border-radius:4px}
+.empty{color:#999}
+.empty .symbol{color:#fff;text-shadow:0 0 18px #fff6;animation:symbolFlicker 5s linear infinite}
+.toast{background:#111;border-color:#555;color:#fff;border-radius:7px}
+.toast.error{background:#171717;border-color:#777;color:#fff}
+.statusline{color:#aaa}
+#status{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+.foot{border-top:1px solid #222;padding-top:14px}
+@keyframes scanline{0%{transform:translateY(-100%)}100%{transform:translateY(100%)}}
+@keyframes gridDrift{0%{background-position:0 0,0 0}100%{background-position:0 38px,38px 0}}
+@keyframes logoPulse{0%,100%{box-shadow:0 0 12px #fff1}50%{box-shadow:0 0 28px #fff3}}
+@keyframes dotPulse{0%,100%{opacity:.55;box-shadow:0 0 5px #fff4}50%{opacity:1;box-shadow:0 0 14px #fff}}
+@keyframes symbolFlicker{0%,94%,96%,100%{opacity:1}95%{opacity:.45}}
+@keyframes titleGlitch{0%,91%,93%,97%,100%{transform:translateX(0)}92%{transform:translateX(1px)}94%{transform:translateX(-1px)}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;scroll-behavior:auto!important}}
+@media(max-width:820px){.hero{grid-template-columns:1fr}.layout{grid-template-columns:1fr}}
+@media(max-width:480px){.shell{padding:15px 10px 28px}.card{padding:16px}.hero h2{font-size:27px}.stats{grid-template-columns:repeat(3,minmax(0,1fr))}.stat strong{font-size:22px}.stat span{font-size:10px}.top{margin-bottom:18px}.brand h1{font-size:22px}}
+
 </style>
 </head>
 <body>
 <div class="shell">
-<header class="top"><div class="brand"><div class="logo" aria-hidden="true">⌁</div><div><div class="eyebrow">Network diagnostics</div><h1>IpCamHack</h1><div class="sub">IP camera inventory · v4.0</div></div></div><div class="pill">● Private-network mode</div></header>
+<header class="top"><div class="brand"><div class="logo" aria-hidden="true">⌁</div><div><div class="eyebrow">Network diagnostics</div><h1>IpCamHack</h1><div class="sub">IP camera inventory · v4.0</div></div></div></header>
 <section class="hero">
 <div class="card"><div class="eyebrow">Camera audit workspace</div><h2>Know what’s listening<br>on your network.</h2><p>Identify hosts on a network you own or are authorized to assess, and review camera-related ports without attempting logins or collecting credentials.</p><div class="safe-note"><span aria-hidden="true">⚑</span><div><strong>Authorized scope only</strong>Scans are restricted to private IPv4 and loopback addresses, with a 256-address cap per run.</div></div></div>
 <div class="stats"><div class="stat"><span>Hosts checked</span><strong id="scanned" class="blue">0</strong></div><div class="stat"><span>Hosts detected</span><strong id="found" class="mint">0</strong></div><div class="stat"><span>Camera-port matches</span><strong id="matches">0</strong></div></div>

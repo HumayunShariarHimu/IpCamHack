@@ -13,8 +13,18 @@ A monochrome, animated dashboard for authorized IP-camera/network inventory and 
 - Bounded authorized public IPv4 range assessment (single IP, explicit range, or CIDR /24–/32; maximum 256 addresses) with explicit authorization confirmation and optional country-code filter.
 - Bounded assessment of up to 20 explicitly supplied public IPv4 addresses with a required authorization confirmation and optional country-code filter; checks ports and performs passive HTTP banner fingerprinting without authentication.
 - Browser-local scan history (last 20 scans) with restore and clear controls; history remains on that browser/device.
-- Rejects public IP targets and scan ranges larger than 256 addresses.
+- Rejects public IP targets from the private-LAN scanner and scan ranges larger than 256 addresses.
+- Defensive API response headers (`nosniff`, frame denial, no-referrer, restricted device permissions) and `no-store` on API responses.
+- Automated Node.js regression tests for health/security headers, country catalog integrity, authorization gates, and invalid/private/public target rejection.
 - No credential guessing, password collection, or camera-feed interception.
+
+## Security and scope
+
+- Use only devices, IP addresses, and ranges you own or are explicitly authorized to assess.
+- The authorization checkbox is an operator confirmation, not an authentication system or proof of ownership. Keep the service private to your lab; do not expose a local scanner directly to the public internet.
+- The private-LAN endpoint accepts private/loopback IPv4 only. Public-range and explicit-target endpoints require explicit targets and a confirmation flag; they do not generate random targets or attempt logins.
+- Public geolocation sends the entered IP to the configured external provider (ipwho.is). Avoid submitting addresses you do not want shared with that provider.
+- Findings are passive indicators, not proof of camera identity or a security verdict. Review results manually and record scope/authorization before testing.
 
 ## Requirements
 

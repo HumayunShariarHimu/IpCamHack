@@ -134,6 +134,8 @@ tbody tr:hover{background:#ffffff07}
   <textarea class="field" id="targetIps" rows="4" placeholder="203.0.113.10&#10;198.51.100.20" spellcheck="false" style="resize:vertical"></textarea>
   <label class="check"><input id="targetAuthorized" type="checkbox" required><span>I own every target listed or have explicit written authorization to assess them.</span></label>
   <button class="btn primary full" id="targetScanBtn" type="submit">Run authorized target checks</button>
+  <div class="actions" style="margin-top:10px"><button class="btn" id="saveTargets" type="button">Save target list</button><button class="btn" id="validateSavedTargets" type="button">Validate saved targets</button><button class="btn" id="randomTargetSample" type="button">Random sample</button></div>
+  <p class="hint" style="margin-bottom:0">Saved targets stay in this browser. Random sample only selects from addresses you entered or saved; it never generates public IPs.</p>
  </form>
 </section>
 
@@ -194,6 +196,30 @@ $('geoForm').addEventListener('submit',async e=>{
  try{const response=await fetch('/api/geo?ip='+encodeURIComponent(ip));const data=await response.json();if(!response.ok)throw new Error(data.error||'Lookup failed.');selectedGeo=data.geo;renderGeo(selectedGeo);toast('Geolocation lookup complete.');}
  catch(err){$('geoOutput').innerHTML='<div class="empty" style="grid-column:1/-1;padding:20px">'+escapeHtml(err.message||'Lookup failed.')+'</div>';$('geoCountryMatch').textContent='';toast(err.message||'Lookup failed.',true);}
  finally{btn.disabled=false;btn.textContent='Look up IP details';}
+});
+
+const TARGETS_KEY='ipcamhack.explicitTargets.v1';
+let savedTargets=[];
+try{const parsed=JSON.parse(localStorage.getItem(TARGETS_KEY)||'[]');if(Array.isArray(parsed))savedTargets=parsed.filter(v=>typeof v==='string').slice(0,20);}catch(_){savedTargets=[];}
+function parseTargetInput(value){return [...new Set(value.split(/[\s,;]+/).map(v=>v.trim()).filter(Boolean))];}
+$('saveTargets').addEventListener('click',()=>{
+ const ips=parseTargetInput($('targetIps').value);
+ if(!ips.length||ips.length>20){toast('Enter between 1 and 20 explicit IPv4 addresses.',true);return;}
+ savedTargets=ips;
+ try{localStorage.setItem(TARGETS_KEY,JSON.stringify(savedTargets));toast('Target list saved in this browser.');}
+ catch(_){toast('Could not save targets in browser storage.',true);}
+});
+$('validateSavedTargets').addEventListener('click',()=>{
+ if(!savedTargets.length){toast('Save or enter a target list first.',true);return;}
+ $('targetIps').value=savedTargets.join('\n');
+ $('targetsForm').requestSubmit();
+});
+$('randomTargetSample').addEventListener('click',()=>{
+ const pool=parseTargetInput($('targetIps').value).length?parseTargetInput($('targetIps').value):savedTargets;
+ if(!pool.length){toast('Enter or save explicit targets before sampling.',true);return;}
+ const shuffled=[...pool].sort(()=>Math.random()-.5).slice(0,Math.min(5,pool.length));
+ $('targetIps').value=shuffled.join('\n');
+ $('targetsForm').requestSubmit();
 });
 
 $('targetsForm').addEventListener('submit',async e=>{

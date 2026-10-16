@@ -68,17 +68,24 @@ test('explicit target assessment rejects private targets and oversized target li
   assert.match((await limitResponse.json()).error, /1 to 20/i);
 });
 
-test('explicit target assessment is disabled in hosted serverless mode', async () => {
+test('hosted mode allows only bounded public scopes and still rejects private targets', async () => {
   const original = process.env.VERCEL;
   process.env.VERCEL = '1';
   try {
-    const response = await fetch(baseUrl + '/api/scan/targets', {
+    const privateTarget = await fetch(baseUrl + '/api/scan/targets', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ ips: ['8.8.8.8'], authorized: true })
+      body: JSON.stringify({ ips: ['192.168.1.1'], authorized: true })
     });
-    assert.equal(response.status, 501);
-    assert.match((await response.json()).error, /hosted serverless/i);
+    assert.equal(privateTarget.status, 400);
+
+    const oversizedRange = await fetch(baseUrl + '/api/scan/public-range', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ range: '8.8.8.0/28', authorized: true })
+    });
+    assert.equal(oversizedRange.status, 400);
+    assert.match((await oversizedRange.json()).error, /limited to 8/i);
   } finally {
     if (original === undefined) delete process.env.VERCEL;
     else process.env.VERCEL = original;

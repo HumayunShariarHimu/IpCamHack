@@ -193,7 +193,7 @@ function isPublicIPv4(ip) {
   if (a === 169 && b === 254) return false; // link-local
   if (a === 172 && b >= 16 && b <= 31) return false; // private
   if (a === 192 && b === 168) return false; // private
-  if (a === 192 && b === 0) return false; // IETF protocol assignments
+  if (a === 192 && b === 0 && c === 0) return false; // IETF protocol assignments
   if (a === 192 && b === 0 && c === 2) return false; // documentation
   if (a === 192 && b === 88 && c === 99) return false; // deprecated relay
   if (a === 198 && (b === 18 || b === 19)) return false; // benchmarking

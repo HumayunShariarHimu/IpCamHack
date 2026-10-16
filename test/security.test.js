@@ -113,6 +113,9 @@ test('dashboard has no visible version badge and explains country filtering', ()
   const html = fs.readFileSync(require.resolve('../public/index.html'), 'utf8');
   assert.doesNotMatch(html, /IpCamHack\s*[·-]\s*v\d|class="badge"/i);
   assert.match(html, /Selected countries filter authorized public-range and explicit-target scans/);
+  assert.match(html, /id="activityLog"/);
+  assert.match(html, /id="cameraOnlyBtn"/);
+  assert.match(html, /id="statActive"/);
 });
 
 test('dashboard inline JavaScript parses before it is served', () => {

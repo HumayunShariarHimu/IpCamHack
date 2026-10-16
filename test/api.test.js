@@ -58,6 +58,11 @@ test('geolocation rejects malformed addresses before making a provider request',
   assert.match((await response.json()).error, /IPv4/i);
 });
 
+test('geolocation rejects documentation-only IP ranges', async () => {
+  const response = await get('/api/geo?ip=192.0.2.10');
+  assert.equal(response.status, 400);
+});
+
 test('explicit target inventory requires an authorization confirmation', async () => {
   const response = await post('/api/scan/targets', { ips: ['8.8.8.8'] });
   assert.equal(response.status, 403);
@@ -66,6 +71,14 @@ test('explicit target inventory requires an authorization confirmation', async (
 test('explicit target inventory rejects private addresses', async () => {
   const response = await post('/api/scan/targets', {
     ips: ['192.168.1.10'],
+    authorized: true
+  });
+  assert.equal(response.status, 400);
+});
+
+test('explicit target inventory enforces the 20-address bound before scanning', async () => {
+  const response = await post('/api/scan/targets', {
+    ips: Array.from({ length: 21 }, () => '8.8.8.8'),
     authorized: true
   });
   assert.equal(response.status, 400);

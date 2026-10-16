@@ -152,7 +152,7 @@ function toast(message,error=false){const el=$('toast');el.textContent=message;e
 function setStatus(s){$('status').textContent=s;}
 function render(){
  const q=$('filter').value.trim().toLowerCase();
- const shown=results.filter(r=>(r.ip+' '+r.openPorts.join(' ')).toLowerCase().includes(q));
+ const shown=results.filter(r=>(r.ip+' '+r.openPorts.join(' ')+' '+(r.brand||'')+' '+(r.service||'')+' '+(r.server||'')+' '+(r.geo?.country||'')+' '+(r.geo?.countryCode||'')).toLowerCase().includes(q));
  $('rows').innerHTML=shown.length?shown.map(r=>'<tr><td class="ip">'+escapeHtml(r.ip)+'</td><td>'+r.openPorts.map(p=>'<span class="port">'+p+'</span>').join('')+'</td><td><strong>'+escapeHtml(r.brand||'Unknown')+'</strong><div class="tag">'+escapeHtml(r.service||'TCP service')+(r.server?' · '+escapeHtml(r.server):'')+'</div></td><td>'+(r.possibleCamera?'<span class="mint">Camera-related port</span>':'<span class="tag">Other service</span>')+'</td><td class="tag">'+new Date(r.checkedAt).toLocaleTimeString()+'</td></tr>').join(''):'<tr><td colspan="5"><div class="empty"><div class="symbol">⌕</div><strong>No matching hosts</strong><div>Try another filter or scan a permitted range.</div></div></td></tr>';
  $('resultCount').textContent=shown.length+' result'+(shown.length===1?'':'s');
 }

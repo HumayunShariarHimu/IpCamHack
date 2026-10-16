@@ -115,12 +115,13 @@ button:focus-visible,input:focus-visible{box-shadow:0 0 0 3px #ffffff30}
 <main class="layout">
 <section class="card"><div class="section-head"><h3>Scan configuration</h3><span class="tag">01 / Scope</span></div>
 <form id="scanForm"><label class="field-label" for="range">Private IP / CIDR / range</label><input class="field" id="range" name="range" value="192.168.1.0/24" autocomplete="off" spellcheck="false" required aria-describedby="rangeHint"><p id="rangeHint" class="hint">Examples: 192.168.1.12 · 192.168.1.0/24 · 10.0.0.10-10.0.0.40</p>
+<label class="check"><input id="fullPortScan" type="checkbox"><span>Full TCP port scan (1–65,535) — single private IPv4 host only; slower. Leave off for common network/camera service ports.</span></label>
 <label class="check"><input id="authorized" type="checkbox" required><span>I own this network or have explicit permission to run this inventory check.</span></label>
 <div class="actions"><button class="btn primary full" id="scanBtn" type="submit">⌕ &nbsp; Scan private range</button><button class="btn danger full" id="clearBtn" type="button">Clear results</button></div><p class="hint" id="runtimeNote" style="margin-top:14px;margin-bottom:0">Local mode is required to scan your own LAN. Hosted deployments cannot reach your private network.</p></form>
 <div class="statusline"><span class="dot"></span><span id="status">Ready · no scan running</span></div>
 <div class="hint" style="margin-top:18px;margin-bottom:0">Checks TCP ports commonly used by camera services. An open port is not proof that a device is a camera.</div>
 </section>
-<section class="card results-card"><div class="section-head"><div><h3>Detected services</h3><div class="tag" id="lastScan">No scan performed yet</div></div><div class="toolbar"><input class="field search" id="filter" placeholder="Filter IP, port, brand…" aria-label="Filter results"><button class="btn" id="cameraOnlyBtn" type="button" aria-pressed="false">Camera matches only</button><button class="btn" id="exportBtn" type="button">Export CSV</button></div></div>
+<section class="card results-card"><div class="section-head"><div><h3>Detected services</h3><div class="tag" id="lastScan">No scan performed yet</div></div><div class="toolbar"><input class="field search" id="filter" placeholder="Filter IP, port, brand…" aria-label="Filter results"><button class="btn" id="cameraOnlyBtn" type="button" aria-pressed="false">Camera matches only</button><button class="btn" id="exportBtn" type="button">Export CSV</button><button class="btn" id="exportJsonBtn" type="button">Export JSON</button></div></div>
 <div class="table-wrap"><table><thead><tr><th>Host</th><th>Open ports</th><th>Brand / service</th><th>Assessment</th><th>Checked</th></tr></thead><tbody id="rows"><tr><td colspan="5"><div class="empty"><div class="symbol">⌕</div><strong>Nothing scanned yet</strong><div>Configure an authorized private range to begin.</div></div></td></tr></tbody></table></div>
 <div class="foot"><span>Read-only TCP port checks</span><span id="resultCount">0 results</span></div></section>
 </main>
@@ -128,7 +129,7 @@ button:focus-visible,input:focus-visible{box-shadow:0 0 0 3px #ffffff30}
 <section class="extras" aria-label="Country and geolocation tools">
   <section class="card">
     <div class="section-head"><div><h3>Country selector</h3><div class="tag">APNIC region catalog · 45 entries</div></div><span class="tag">02 / Region</span></div>
-    <p class="hint">Selected countries filter authorized public-range and explicit-target scans. They do not apply to private LAN scans or trigger a scan by themselves.</p>
+    <p class="hint">Selected countries filter authorized public-range and explicit-target scans. Country selection is a filter, not a target generator: it cannot scan an entire country by itself. The private-LAN scan uses your entered local range.</p>
     <div class="actions"><button class="btn" id="selectCountries" type="button">Select all</button><button class="btn" id="clearCountries" type="button">Deselect all</button></div>
     <div class="country-grid" id="countryGrid" aria-label="Country selection"><span class="tag">Loading country list…</span></div>
     <div class="statusline"><span class="dot"></span><span id="countryStatus">Loading country catalog…</span></div>
@@ -194,6 +195,22 @@ function render(){
 }
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function updateStats(stats){$('scanned').textContent=stats.scanned||0;$('found').textContent=stats.found||0;$('matches').textContent=results.filter(r=>r.possibleCamera).length;}
+function exportJson(){
+ if(!results.length){toast('There are no results to export.',true);return;}
+ const report={
+  schemaVersion:1,
+  tool:'IpCamHack',
+  generatedAt:new Date().toISOString(),
+  scope:'authorized passive service inventory',
+  summary:{resultCount:results.length,cameraPortMatches:results.filter(r=>r.possibleCamera).length},
+  results
+ };
+ const blob=new Blob([JSON.stringify(report,null,2)],{type:'application/json;charset=utf-8'});
+ const url=URL.createObjectURL(blob);const a=document.createElement('a');
+ a.href=url;a.download='ipcam-audit-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json';
+ document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+ toast('JSON research report prepared.');
+}
 function exportCsv(){if(!results.length){toast('There are no results to export.',true);return;}const quote=v=>'\"'+String(v).replace(/\"/g,'\"\"')+'\"';const lines=[['IP address','Open TCP ports','Brand','Service','Server header','Country','Country code','Camera-related port','Checked at'],...results.map(r=>[r.ip,r.openPorts.join('; '),r.brand||'Unknown',r.service||'',r.server||'',r.geo?.country||'',r.geo?.countryCode||'',r.possibleCamera?'Possible':'No',r.checkedAt])].map(row=>row.map(quote).join(',')).join('\r\n');const url=URL.createObjectURL(new Blob(['\ufeff'+lines],{type:'text/csv;charset=utf-8;'}));const a=document.createElement('a');a.href=url;a.download='ipcam-audit-'+new Date().toISOString().replace(/[:.]/g,'-')+'.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);toast('CSV export prepared.');}
 
 const HISTORY_KEY='ipcamhack.scanHistory.v1';
@@ -218,7 +235,7 @@ async function loadCountries(){
  }catch(e){$('countryGrid').innerHTML='<span class="tag">Could not load countries. Check the API.</span>';$('countryStatus').textContent=e.message||'Country catalog unavailable';}
 }
 function selectedCountries(){return Array.from(document.querySelectorAll('#countryGrid input[type="checkbox"]:checked')).map(el=>el.value);}
-function updateCountryStatus(){const selected=selectedCountries();$('countryStatus').textContent=selected.length?selected.length+' selected: '+selected.join(', '):'No country filter · all supplied targets';}
+function updateCountryStatus(){const selected=selectedCountries();$('countryStatus').textContent=selected.length?selected.length+' selected: '+selected.join(', ')+' · applies to explicit public targets/range':'No country filter · all supplied targets';}
 function renderGeo(geo){
  const items=[['IP address',geo.ip],['Country',geo.country+' ('+geo.countryCode+')'],['Region',geo.region],['City',geo.city],['ISP',geo.isp],['ASN',geo.asn||'Unavailable'],['Latitude',geo.latitude==null?'Unavailable':geo.latitude],['Longitude',geo.longitude==null?'Unavailable':geo.longitude]];
  $('geoOutput').innerHTML=items.map(([label,value])=>'<div class="geo-item"><span>'+escapeHtml(label)+'</span><strong>'+escapeHtml(value)+'</strong></div>').join('');
@@ -268,7 +285,7 @@ $('publicRangeForm').addEventListener('submit',async e=>{
   const response=await fetch('/api/scan/public-range',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({range,countries:selectedCountries(),authorized:true})});
   const data=await response.json();if(!response.ok)throw new Error(data.error||'Public-range assessment failed.');
   results=data.found||[];render();updateStats(data.stats||{});saveHistory({range,kind:'public-range',at:new Date().toLocaleString(),scanned:data.stats?.scanned||0,found:results.length,results});
-  $('lastScan').textContent='Public range · '+new Date(data.stats.lastScanAt).toLocaleString();setStatus('Complete · '+(data.stats.scanned||0)+' scoped addresses checked');toast(data.summary||'Public-range assessment complete.');
+  $('lastScan').textContent='Public range · '+new Date(data.stats.lastScanAt).toLocaleString();setStatus('Complete · '+(data.stats.scanned||0)+' scoped addresses checked');toast((data.summary||'Public-range assessment complete.')+(data.countryFilterStats&&data.countryFilterStats.selected?' Country filter: '+data.countryFilterStats.matched+' matched, '+data.countryFilterStats.excluded+' excluded, '+data.countryFilterStats.lookupFailed+' geolocation lookup failures.':''));
  }catch(err){toast(err.message||'Public-range assessment failed.',true);setStatus('Public-range assessment failed.');}
  finally{btn.disabled=false;btn.textContent='Run authorized public-range assessment';}
 });
@@ -283,7 +300,7 @@ $('targetsForm').addEventListener('submit',async e=>{
   const response=await fetch('/api/scan/targets',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ips,countries:selectedCountries(),authorized:true})});
   const data=await response.json();if(!response.ok)throw new Error(data.error||'Target assessment failed.');
   results=data.found||[];render();updateStats(data.stats||{});saveHistory({range:'Explicit targets: '+ips.length,targets:ips,kind:'targets',at:new Date().toLocaleString(),scanned:data.stats?.scanned||ips.length,found:results.length,results});
-  $('lastScan').textContent='Target assessment · '+new Date(data.stats.lastScanAt).toLocaleString();setStatus('Complete · '+(data.stats.scanned||ips.length)+' explicit targets checked');toast(data.summary||'Assessment complete.');
+  $('lastScan').textContent='Target assessment · '+new Date(data.stats.lastScanAt).toLocaleString();setStatus('Complete · '+(data.stats.scanned||ips.length)+' explicit targets checked');toast((data.summary||'Assessment complete.')+(data.countryFilterStats&&data.countryFilterStats.selected?' Country filter: '+data.countryFilterStats.matched+' matched, '+data.countryFilterStats.excluded+' excluded, '+data.countryFilterStats.lookupFailed+' geolocation lookup failures.':''));
  }catch(err){toast(err.message||'Target assessment failed.',true);setStatus('Target assessment failed.');}
  finally{btn.disabled=false;btn.textContent='Run authorized target checks';}
 });
@@ -294,8 +311,8 @@ renderHistory();loadCountries();
 
 $('scanForm').addEventListener('submit',async e=>{
  e.preventDefault();if(!$('authorized').checked){toast('Confirm authorization before scanning.',true);return;}
- const btn=$('scanBtn');btn.disabled=true;btn.textContent='Scanning…';setStatus('Checking private-network ports…');toast('Scan started. This may take a moment.');
- try{const response=await fetch('/api/scan/range',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({range:$('range').value.trim()})});const data=await response.json();if(!response.ok)throw new Error(data.error||'Request failed ('+response.status+')');results=data.found||[];saveHistory({range:$('range').value.trim(),at:new Date().toLocaleString(),scanned:data.stats?.scanned||0,found:results.length,results});render();updateStats(data.stats||{});$('lastScan').textContent='Last scan · '+new Date(data.stats.lastScanAt).toLocaleString();setStatus('Complete · '+(data.stats.scanned||0)+' addresses checked');toast(data.summary||'Scan complete.');
+ const fullPortScan=$('fullPortScan').checked;const range=$('range').value.trim();if(fullPortScan&&(range.includes('/')||range.includes('-'))){toast('Full TCP scan requires one private IPv4 address, not a range or CIDR.',true);return;}const btn=$('scanBtn');btn.disabled=true;btn.textContent='Scanning…';setStatus(fullPortScan?'Scanning all 65,535 TCP ports on one private host…':'Checking common private-network service ports…');toast(fullPortScan?'Full TCP scan started; it may take several minutes.':'Scan started. This may take a moment.');
+ try{const response=await fetch('/api/scan/range',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({range,fullPortScan})});const data=await response.json();if(!response.ok)throw new Error(data.error||'Request failed ('+response.status+')');results=data.found||[];saveHistory({range:$('range').value.trim(),at:new Date().toLocaleString(),scanned:data.stats?.scanned||0,found:results.length,results});render();updateStats(data.stats||{});$('lastScan').textContent='Last scan · '+new Date(data.stats.lastScanAt).toLocaleString();setStatus('Complete · '+(data.stats.scanned||0)+' addresses checked');toast(data.summary||'Scan complete.');
  }catch(err){toast(err.message||'Could not reach the API.',true);setStatus('Scan failed · check the API deployment and range.');}
  finally{btn.disabled=false;btn.innerHTML='⌕ &nbsp; Scan private range';}
 });
@@ -304,6 +321,7 @@ $('filter').addEventListener('input',render);
 $('cameraOnlyBtn').addEventListener('click',()=>{cameraOnly=!cameraOnly;$('cameraOnlyBtn').setAttribute('aria-pressed',String(cameraOnly));$('cameraOnlyBtn').textContent=cameraOnly?'Show all results':'Camera matches only';render();logActivity(cameraOnly?'Showing camera-related port matches only.':'Showing all detected services.');});
 $('clearActivityBtn').addEventListener('click',()=>{$('activityLog').replaceChildren();logActivity('Activity log cleared.');});
 $('exportBtn').addEventListener('click',exportCsv);
+$('exportJsonBtn').addEventListener('click',exportJson);
 (async()=>{try{const health=await fetch('/api/health');if(health.ok){const info=await health.json();if(info.environment==='serverless'){$('runtimeNote').textContent='Hosted mode detected. For LAN scanning, run this app locally on the same network as your cameras.';setStatus('Hosted dashboard · LAN scanning requires local mode.');}}const r=await fetch('/api/status');if(!r.ok)return;const data=await r.json();results=data.results||[];render();updateStats(data.stats||{});if(data.stats?.lastScanAt)$('lastScan').textContent='Last scan · '+new Date(data.stats.lastScanAt).toLocaleString();}catch(_){setStatus('API unavailable · start the local server to enable scanning.');}})();
 </script>
 </body></html>

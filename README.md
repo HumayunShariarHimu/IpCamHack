@@ -6,15 +6,25 @@ A monochrome, animated dashboard for authorized IP-camera/network inventory and 
 
 - Premium black-and-white cyber-terminal UI with subtle animated grid/scanlines and reduced-motion support.
 - IPv4 single-host, CIDR (/24 to /32), and explicit address-range inputs.
-- Bounded read-only TCP checks for common web and camera-service ports, plus passive HTTP banner and camera-brand fingerprinting (Hikvision, Dahua, TP-Link, Xiaomi, Axis, Sony, Panasonic, Bosch, Samsung, Vivotek, Reolink, Amcrest, Ubiquiti and Hanwha). No login attempts or stream access.
-- Filterable results, scan statistics, clear action, CSV export, and health endpoint.
+- Read-only TCP checks for an expanded common-service port set (web, camera, SSH, SMB, databases, RTSP and other diagnostics), plus a guarded full TCP port scan (1–65,535) for one explicitly authorized private IPv4 host per run; passive HTTP banner and camera-brand fingerprinting (Hikvision, Dahua, TP-Link, Xiaomi, Axis, Sony, Panasonic, Bosch, Samsung, Vivotek, Reolink, Amcrest, Ubiquiti and Hanwha). No login attempts or stream access.
+- Filterable results, scan statistics, clear action, CSV and structured JSON research-report export, and health endpoint.
 - Restored APNIC country-code selector (45 entries) with select/deselect controls.
 - Manual public IPv4 geolocation lookup (country, region, city, ISP, ASN, coordinates) with country-selection comparison.
 - Bounded authorized public IPv4 range assessment (single IP, explicit range, or CIDR /24–/32; maximum 256 addresses) with explicit authorization confirmation and optional country-code filter.
 - Bounded assessment of up to 20 explicitly supplied public IPv4 addresses with a required authorization confirmation and optional country-code filter; checks ports and performs passive HTTP banner fingerprinting without authentication.
 - Browser-local scan history (last 20 scans) with restore and clear controls; history remains on that browser/device.
-- Rejects public IP targets and scan ranges larger than 256 addresses.
+- Rejects public IP targets from the private-LAN scanner and scan ranges larger than 256 addresses.
+- Defensive API response headers (`nosniff`, frame denial, no-referrer, restricted device permissions) and `no-store` on API responses.
+- Automated Node.js regression tests for health/security headers, country catalog integrity, authorization gates, and invalid/private/public target rejection.
 - No credential guessing, password collection, or camera-feed interception.
+
+## Security and scope
+
+- Use only devices, IP addresses, and ranges you own or are explicitly authorized to assess.
+- The authorization checkbox is an operator confirmation, not an authentication system or proof of ownership. Keep the service private to your lab; do not expose a local scanner directly to the public internet.
+- The private-LAN endpoint accepts private/loopback IPv4 only. Full TCP scanning is restricted to one private IPv4 host per run; common-port mode supports up to 256 addresses. Public-range and explicit-target endpoints require explicit targets and a confirmation flag; they do not generate random targets or attempt logins.
+- Public geolocation sends the entered IP to the configured external provider (ipwho.is). Avoid submitting addresses you do not want shared with that provider.
+- Findings are passive indicators, not proof of camera identity or a security verdict. Review results manually and record scope/authorization before testing.
 
 ## Requirements
 

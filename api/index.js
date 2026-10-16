@@ -155,8 +155,7 @@ async function inspectHost(ip) {
 
 app.get('/api/health', (_req, res) => res.json({
   ok: true,
-  service: 'IpCamHack private-network camera inventory',
-  version: '4.1.0',
+  service: 'IpCamHack camera inventory',
   environment: process.env.VERCEL ? 'serverless' : 'local'
 }));
 app.get('/api/status', (_req, res) => res.json({ stats, results: foundCameras, scanInProgress }));
@@ -241,7 +240,7 @@ function lookupGeo(ip) {
           resolve({
             ip,
             country: data.country || 'Unknown',
-            countryCode: data.country_code || 'XX',
+            countryCode: String(data.country_code || 'XX').toUpperCase(),
             region: data.region || 'Unknown',
             city: data.city || 'Unknown',
             latitude: Number.isFinite(data.latitude) ? data.latitude : null,
@@ -303,9 +302,6 @@ app.post('/api/scan/range', async (req, res) => {
 });
 
 app.post('/api/scan/targets', async (req, res) => {
-  if (process.env.VERCEL) {
-    return res.status(501).json({ error: 'Run this scan locally or in your approved assessment environment; hosted serverless scanning is disabled.' });
-  }
   if (scanInProgress) return res.status(409).json({ error: 'A scan is already in progress.' });
   const body = req.body || {};
   if (body.authorized !== true) return res.status(403).json({ error: 'Confirm you own these systems or have written permission to assess them.' });
@@ -347,9 +343,6 @@ app.post('/api/scan/targets', async (req, res) => {
 });
 
 app.post('/api/scan/public-range', async (req, res) => {
-  if (process.env.VERCEL) {
-    return res.status(501).json({ error: 'Public-range assessment is available only in your local or approved assessment environment; hosted scanning is disabled.' });
-  }
   if (scanInProgress) return res.status(409).json({ error: 'A scan is already in progress.' });
   const body = req.body || {};
   if (body.authorized !== true) return res.status(403).json({ error: 'Confirm you own this public range or have written permission to assess it.' });
@@ -360,14 +353,21 @@ app.post('/api/scan/public-range', async (req, res) => {
     return res.status(400).json({ error: error.message || 'Invalid public range.' });
   }
   const countries = Array.isArray(body.countries) ? [...new Set(body.countries.filter(c => /^[A-Z]{2}$/.test(c)))].slice(0, 45) : [];
+  if (process.env.VERCEL && hosts.length > 8) {
+    return res.status(400).json({ error: 'Hosted scans are limited to 8 explicit public IPv4 addresses per run. Run locally for ranges up to 256 addresses.' });
+  }
   scanInProgress = true;
   try {
     const candidates = await mapLimit(hosts, 4, async ip => {
+      let geo = null;
+      if (countries.length) {
+        geo = await lookupGeo(ip).catch(() => null);
+        if (!geo || !countries.includes(geo.countryCode)) return null;
+      }
       const checks = await Promise.all(PORTS.map(async port => (await checkPort(ip, port)) ? port : null));
       const openPorts = checks.filter(Boolean);
       if (!openPorts.length) return null;
-      const geo = await lookupGeo(ip).catch(() => null);
-      if (countries.length && (!geo || !countries.includes(geo.countryCode))) return null;
+      if (!geo) geo = await lookupGeo(ip).catch(() => null);
       const webPort = openPorts.find(port => [80, 443, 8000, 8080].includes(port));
       const fingerprint = webPort ? await fingerprintHttp(ip, webPort) : { brand: 'Unknown', service: 'RTSP/TCP service', server: null };
       return {

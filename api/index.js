@@ -193,6 +193,36 @@ function isPublicIPv4(ip) {
   return true;
 }
 
+function expandPublicRange(input) {
+  const range = String(input || '').trim();
+  let hosts;
+  if (range.includes('/')) {
+    const [base, maskText, ...extra] = range.split('/');
+    if (extra.length || net.isIP(base) !== 4 || !/^\d{1,2}$/.test(maskText)) {
+      throw new Error('Enter a valid public IPv4 CIDR, such as your organization’s /24 range.');
+    }
+    const mask = Number(maskText);
+    if (mask < 24 || mask > 32) throw new Error('Public CIDR must be /24 to /32 (maximum 256 addresses).');
+    const count = 2 ** (32 - mask);
+    const start = ipToInt(base);
+    const network = (start & ((0xffffffff << (32 - mask)) >>> 0)) >>> 0;
+    hosts = Array.from({ length: count }, (_, i) => intToIp((network + i) >>> 0));
+  } else if (range.includes('-')) {
+    const parts = range.split('-').map(s => s.trim());
+    if (parts.length !== 2 || parts.some(ip => net.isIP(ip) !== 4)) {
+      throw new Error('Enter two public IPv4 addresses separated by a hyphen.');
+    }
+    const start = ipToInt(parts[0]), end = ipToInt(parts[1]);
+    if (end < start || end - start + 1 > MAX_HOSTS) throw new Error('Public range must be ascending and contain at most 256 addresses.');
+    hosts = Array.from({ length: end - start + 1 }, (_, i) => intToIp((start + i) >>> 0));
+  } else {
+    if (net.isIP(range) !== 4) throw new Error('Enter a valid public IPv4 address, CIDR, or range.');
+    hosts = [range];
+  }
+  if (!hosts.every(isPublicIPv4)) throw new Error('Every address must be a public IPv4 address; private and reserved ranges are rejected.');
+  return hosts;
+}
+
 function lookupGeo(ip) {
   return new Promise((resolve, reject) => {
     const request = https.get('https://ipwho.is/' + encodeURIComponent(ip), { timeout: 4500 }, response => {
@@ -311,6 +341,51 @@ app.post('/api/scan/targets', async (req, res) => {
     });
   } catch (_error) {
     return res.status(500).json({ error: 'The target assessment failed unexpectedly.' });
+  } finally {
+    scanInProgress = false;
+  }
+});
+
+app.post('/api/scan/public-range', async (req, res) => {
+  if (process.env.VERCEL) {
+    return res.status(501).json({ error: 'Public-range assessment is available only in your local or approved assessment environment; hosted scanning is disabled.' });
+  }
+  if (scanInProgress) return res.status(409).json({ error: 'A scan is already in progress.' });
+  const body = req.body || {};
+  if (body.authorized !== true) return res.status(403).json({ error: 'Confirm you own this public range or have written permission to assess it.' });
+  let hosts;
+  try {
+    hosts = expandPublicRange(body.range);
+  } catch (error) {
+    return res.status(400).json({ error: error.message || 'Invalid public range.' });
+  }
+  const countries = Array.isArray(body.countries) ? [...new Set(body.countries.filter(c => /^[A-Z]{2}$/.test(c)))].slice(0, 45) : [];
+  scanInProgress = true;
+  try {
+    const candidates = await mapLimit(hosts, 4, async ip => {
+      const checks = await Promise.all(PORTS.map(async port => (await checkPort(ip, port)) ? port : null));
+      const openPorts = checks.filter(Boolean);
+      if (!openPorts.length) return null;
+      const geo = await lookupGeo(ip).catch(() => null);
+      if (countries.length && (!geo || !countries.includes(geo.countryCode))) return null;
+      const webPort = openPorts.find(port => [80, 443, 8000, 8080].includes(port));
+      const fingerprint = webPort ? await fingerprintHttp(ip, webPort) : { brand: 'Unknown', service: 'RTSP/TCP service', server: null };
+      return {
+        ip, openPorts, brand: fingerprint.brand, service: fingerprint.service, server: fingerprint.server,
+        possibleCamera: openPorts.some(p => [554, 8554, 37777].includes(p)),
+        geo: geo ? { country: geo.country, countryCode: geo.countryCode, city: geo.city, isp: geo.isp } : null,
+        checkedAt: new Date().toISOString()
+      };
+    });
+    const results = candidates.filter(Boolean);
+    foundCameras = results;
+    stats = { scanned: hosts.length, found: results.length, lastScanAt: new Date().toISOString() };
+    return res.json({
+      summary: 'Checked ' + hosts.length + ' explicitly scoped, authorized public address(es); ' + results.length + ' matched the selected countries and had monitored ports open.',
+      found: results, stats
+    });
+  } catch (_error) {
+    return res.status(500).json({ error: 'The public-range assessment failed unexpectedly.' });
   } finally {
     scanInProgress = false;
   }

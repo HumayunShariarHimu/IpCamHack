@@ -95,7 +95,7 @@ button:focus-visible,input:focus-visible{box-shadow:0 0 0 3px #ffffff30}
 </head>
 <body>
 <div class="shell">
-<header class="top"><div class="brand"><div class="logo" aria-hidden="true">⌁</div><div><div class="eyebrow">Network diagnostics</div><h1>IpCamHack</h1><div class="sub">IP camera inventory · v4.0</div></div></div></header>
+<header class="top"><div class="brand"><div class="logo" aria-hidden="true">⌁</div><div><div class="eyebrow">Network diagnostics</div><h1>IpCamHack</h1><div class="sub">IP camera inventory · network diagnostics</div></div></div></header>
 <section class="hero">
 <div class="card"><div class="eyebrow">Camera audit workspace</div><h2>Know what’s listening<br>on your network.</h2><p>Identify hosts on a network you own or are authorized to assess, and review camera-related ports without attempting logins or collecting credentials.</p><div class="safe-note"><span aria-hidden="true">⚑</span><div><strong>Authorized scope only</strong>Scans are restricted to private IPv4 and loopback addresses, with a 256-address cap per run.</div></div></div>
 <div class="stats"><div class="stat"><span>Hosts checked</span><strong id="scanned" class="blue">0</strong></div><div class="stat"><span>Hosts detected</span><strong id="found" class="mint">0</strong></div><div class="stat"><span>Camera-port matches</span><strong id="matches">0</strong></div></div>
@@ -117,7 +117,7 @@ button:focus-visible,input:focus-visible{box-shadow:0 0 0 3px #ffffff30}
 <section class="extras" aria-label="Country and geolocation tools">
   <section class="card">
     <div class="section-head"><div><h3>Country selector</h3><div class="tag">APNIC region catalog · 45 entries</div></div><span class="tag">02 / Region</span></div>
-    <p class="hint">Choose countries to compare against a manual IP lookup. Country selection does not trigger scanning.</p>
+    <p class="hint">Selected countries filter authorized public-range and explicit-target scans. They do not apply to private LAN scans or trigger a scan by themselves.</p>
     <div class="actions"><button class="btn" id="selectCountries" type="button">Select all</button><button class="btn" id="clearCountries" type="button">Deselect all</button></div>
     <div class="country-grid" id="countryGrid" aria-label="Country selection"><span class="tag">Loading country list…</span></div>
     <div class="statusline"><span class="dot"></span><span id="countryStatus">Loading country catalog…</span></div>
@@ -138,7 +138,7 @@ button:focus-visible,input:focus-visible{box-shadow:0 0 0 3px #ffffff30}
   <input class="field" id="publicRange" name="range" placeholder="Your authorized public IP, range, or CIDR /24–/32" autocomplete="off" spellcheck="false" required>
   <label class="check"><input id="publicRangeAuthorized" type="checkbox" required><span>I own this public IP range or have explicit written authorization to assess it.</span></label>
   <button class="btn primary full" id="publicRangeBtn" type="submit">Run authorized public-range assessment</button>
-  <p class="hint" style="margin-top:12px;margin-bottom:0">Checks monitored TCP ports and passive HTTP banners only. No login attempts or camera-stream access. Hosted Vercel scanning remains disabled; run locally in your approved assessment environment.</p>
+  <p class="hint" style="margin-top:12px;margin-bottom:0">Checks monitored TCP ports and passive HTTP banners only. No login attempts or camera-stream access. Hosted runs are limited to 8 public addresses; run locally for larger authorized ranges.</p>
  </form>
 </section>
 
@@ -151,7 +151,7 @@ button:focus-visible,input:focus-visible{box-shadow:0 0 0 3px #ffffff30}
   <label class="check"><input id="targetAuthorized" type="checkbox" required><span>I own every target listed or have explicit written authorization to assess them.</span></label>
   <button class="btn primary full" id="targetScanBtn" type="submit">Run authorized target checks</button>
   <div class="actions" style="margin-top:10px"><button class="btn" id="saveTargets" type="button">Save target list</button><button class="btn" id="validateSavedTargets" type="button">Validate saved targets</button><button class="btn" id="randomTargetSample" type="button">Random sample</button></div>
-  <p class="hint" style="margin-bottom:0">Saved targets stay in this browser. Random sample only selects from addresses you entered or saved; it never generates public IPs.</p>
+  <p class="hint" style="margin-bottom:0">Saved targets stay in this browser. Random sample only selects from addresses you entered or saved; it never generates public IPs. The selected country filter is applied before port checks.</p>
  </form>
 </section>
 
@@ -194,19 +194,20 @@ async function loadCountries(){
  try{
   const response=await fetch('/api/countries');const data=await response.json();if(!response.ok)throw new Error(data.error||'Country catalog unavailable.');
   $('countryGrid').innerHTML=(data.countries||[]).map(c=>'<label class="country-option"><input type="checkbox" value="'+escapeHtml(c.code)+'"><span>'+escapeHtml(c.code)+' · '+escapeHtml(c.name)+'</span></label>').join('');
-  $('countryStatus').textContent=(data.countries||[]).length+' countries available';
+  $('countryStatus').textContent=(data.countries||[]).length+' countries available · none selected';
  }catch(e){$('countryGrid').innerHTML='<span class="tag">Could not load countries. Check the API.</span>';$('countryStatus').textContent=e.message||'Country catalog unavailable';}
 }
 function selectedCountries(){return Array.from(document.querySelectorAll('#countryGrid input[type="checkbox"]:checked')).map(el=>el.value);}
+function updateCountryStatus(){const selected=selectedCountries();$('countryStatus').textContent=selected.length?selected.length+' selected: '+selected.join(', '):'No country filter · all supplied targets';}
 function renderGeo(geo){
  const items=[['IP address',geo.ip],['Country',geo.country+' ('+geo.countryCode+')'],['Region',geo.region],['City',geo.city],['ISP',geo.isp],['ASN',geo.asn||'Unavailable'],['Latitude',geo.latitude==null?'Unavailable':geo.latitude],['Longitude',geo.longitude==null?'Unavailable':geo.longitude]];
  $('geoOutput').innerHTML=items.map(([label,value])=>'<div class="geo-item"><span>'+escapeHtml(label)+'</span><strong>'+escapeHtml(value)+'</strong></div>').join('');
  const selected=selectedCountries();const match=selected.length===0?'No country filter selected.':selected.includes(geo.countryCode)?'Country matches your selection.':'Country is outside your selected countries.';
  $('geoCountryMatch').textContent=match;
 }
-$('selectCountries').addEventListener('click',()=>{document.querySelectorAll('#countryGrid input[type="checkbox"]').forEach(el=>el.checked=true);if(selectedGeo)renderGeo(selectedGeo);});
-$('clearCountries').addEventListener('click',()=>{document.querySelectorAll('#countryGrid input[type="checkbox"]').forEach(el=>el.checked=false);if(selectedGeo)renderGeo(selectedGeo);});
-$('countryGrid').addEventListener('change',()=>{if(selectedGeo)renderGeo(selectedGeo);});
+$('selectCountries').addEventListener('click',()=>{document.querySelectorAll('#countryGrid input[type="checkbox"]').forEach(el=>el.checked=true);updateCountryStatus();if(selectedGeo)renderGeo(selectedGeo);});
+$('clearCountries').addEventListener('click',()=>{document.querySelectorAll('#countryGrid input[type="checkbox"]').forEach(el=>el.checked=false);updateCountryStatus();if(selectedGeo)renderGeo(selectedGeo);});
+$('countryGrid').addEventListener('change',()=>{updateCountryStatus();if(selectedGeo)renderGeo(selectedGeo);});
 $('geoForm').addEventListener('submit',async e=>{
  e.preventDefault();const ip=$('geoIp').value.trim();const btn=$('geoBtn');btn.disabled=true;btn.textContent='Looking up…';$('geoOutput').innerHTML='<div class="empty" style="grid-column:1/-1;padding:20px">Querying geolocation provider…</div>';
  try{const response=await fetch('/api/geo?ip='+encodeURIComponent(ip));const data=await response.json();if(!response.ok)throw new Error(data.error||'Lookup failed.');selectedGeo=data.geo;renderGeo(selectedGeo);toast('Geolocation lookup complete.');}

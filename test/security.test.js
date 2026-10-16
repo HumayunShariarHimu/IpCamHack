@@ -74,3 +74,21 @@ test('local root route serves the dashboard', async () => {
     await new Promise(resolve => server.close(resolve));
   }
 });
+
+test('hosted serverless mode refuses private-LAN scans', async () => {
+  const original = process.env.VERCEL;
+  process.env.VERCEL = '1';
+  const server = app.listen(0);
+  try {
+    const response = await fetch('http://127.0.0.1:' + server.address().port + '/api/scan/range', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ range: '192.168.1.10' })
+    });
+    assert.equal(response.status, 501);
+    assert.match((await response.json()).error, /running IpCamHack locally/i);
+  } finally {
+    await new Promise(resolve => server.close(resolve));
+    if (original === undefined) delete process.env.VERCEL;
+    else process.env.VERCEL = original;
+  }
+});

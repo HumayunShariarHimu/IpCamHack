@@ -72,6 +72,21 @@ tbody tr:hover{background:#ffffff07}
 @media(max-width:820px){.hero{grid-template-columns:1fr}.layout{grid-template-columns:1fr}}
 @media(max-width:480px){.shell{padding:15px 10px 28px}.card{padding:16px}.hero h2{font-size:27px}.stats{grid-template-columns:repeat(3,minmax(0,1fr))}.stat strong{font-size:22px}.stat span{font-size:10px}.top{margin-bottom:18px}.brand h1{font-size:22px}}
 
+
+.extras{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+.country-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;max-height:230px;overflow:auto;margin:12px 0}
+.country-option{display:flex;align-items:center;gap:6px;border:1px solid #303030;background:#080808;padding:7px;border-radius:6px;color:#bbb;font-size:11px;cursor:pointer;min-width:0}
+.country-option input{accent-color:#fff}
+.country-option:has(input:checked){border-color:#aaa;color:#fff;background:#171717}
+.geo-result{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:14px}
+.geo-item{border:1px solid #292929;background:#070707;border-radius:7px;padding:10px;min-width:0}
+.geo-item span{display:block;color:#888;font-size:10px;text-transform:uppercase;letter-spacing:.08em}
+.geo-item strong{display:block;color:#eee;font-size:13px;overflow-wrap:anywhere;margin-top:4px;font-weight:600}
+.history-list{display:grid;gap:8px;margin-top:12px}
+.history-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px;border:1px solid #292929;border-radius:7px;background:#080808;font-size:12px}
+.history-row .meta{color:#999}.history-row strong{color:#fff}
+@media(max-width:820px){.extras{grid-template-columns:1fr}.country-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
 </style>
 </head>
 <body>
@@ -94,6 +109,41 @@ tbody tr:hover{background:#ffffff07}
 <div class="table-wrap"><table><thead><tr><th>Host</th><th>Open ports</th><th>Assessment</th><th>Checked</th></tr></thead><tbody id="rows"><tr><td colspan="4"><div class="empty"><div class="symbol">⌕</div><strong>Nothing scanned yet</strong><div>Configure an authorized private range to begin.</div></div></td></tr></tbody></table></div>
 <div class="foot"><span>Read-only TCP port checks</span><span id="resultCount">0 results</span></div></section>
 </main>
+
+<section class="extras" aria-label="Country and geolocation tools">
+  <section class="card">
+    <div class="section-head"><div><h3>Country selector</h3><div class="tag">APNIC region catalog · 45 entries</div></div><span class="tag">02 / Region</span></div>
+    <p class="hint">Choose countries to compare against a manual IP lookup. Country selection does not trigger scanning.</p>
+    <div class="actions"><button class="btn" id="selectCountries" type="button">Select all</button><button class="btn" id="clearCountries" type="button">Deselect all</button></div>
+    <div class="country-grid" id="countryGrid" aria-label="Country selection"><span class="tag">Loading country list…</span></div>
+    <div class="statusline"><span class="dot"></span><span id="countryStatus">Loading country catalog…</span></div>
+  </section>
+  <section class="card">
+    <div class="section-head"><div><h3>Public IP geolocation</h3><div class="tag">Manual lookup · no port scan</div></div><span class="tag">03 / Geo</span></div>
+    <form id="geoForm"><label class="field-label" for="geoIp">Public IPv4 address</label><input class="field" id="geoIp" name="ip" placeholder="e.g. 8.8.8.8" autocomplete="off" spellcheck="false" required><p class="hint">Looks up country, region, city, ISP and ASN for one IP you enter.</p><button class="btn primary full" id="geoBtn" type="submit">Look up IP details</button></form>
+    <div id="geoOutput" class="geo-result" aria-live="polite"><div class="empty" style="grid-column:1/-1;padding:20px">Enter an IP address to view available geolocation details.</div></div>
+    <div id="geoCountryMatch" class="hint" style="margin-bottom:0"></div>
+  </section>
+</section>
+
+<section class="card" style="margin-top:14px">
+ <div class="section-head"><div><h3>Explicit target assessment</h3><div class="tag">Public IPs · bounded · permission required</div></div><span class="tag">04 / Research</span></div>
+ <p class="hint">Enter only specific public IPv4 addresses you own or have written permission to assess. Maximum 20 targets per run. No random IP generation, range expansion, or login attempts.</p>
+ <form id="targetsForm">
+  <label class="field-label" for="targetIps">Target IPv4 addresses (one per line or comma-separated)</label>
+  <textarea class="field" id="targetIps" rows="4" placeholder="203.0.113.10&#10;198.51.100.20" spellcheck="false" style="resize:vertical"></textarea>
+  <label class="check"><input id="targetAuthorized" type="checkbox" required><span>I own every target listed or have explicit written authorization to assess them.</span></label>
+  <button class="btn primary full" id="targetScanBtn" type="submit">Run authorized target checks</button>
+  <div class="actions" style="margin-top:10px"><button class="btn" id="saveTargets" type="button">Save target list</button><button class="btn" id="validateSavedTargets" type="button">Validate saved targets</button><button class="btn" id="randomTargetSample" type="button">Random sample</button></div>
+  <p class="hint" style="margin-bottom:0">Saved targets stay in this browser. Random sample only selects from addresses you entered or saved; it never generates public IPs.</p>
+ </form>
+</section>
+
+<section class="card" style="margin-top:14px">
+  <div class="section-head"><div><h3>Scan history</h3><div class="tag">Saved in this browser on this device</div></div><button class="btn danger" id="clearHistory" type="button">Clear history</button></div>
+  <div id="historyList" class="history-list"><div class="empty" style="padding:20px">No saved scans yet.</div></div>
+</section>
+
 <footer class="foot"><span>IpCamHack · security research and defensive inventory</span><span>No password guessing · no public-IP scanning</span></footer>
 </div>
 <script>
@@ -109,10 +159,92 @@ function render(){
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function updateStats(stats){$('scanned').textContent=stats.scanned||0;$('found').textContent=stats.found||0;$('matches').textContent=results.filter(r=>r.possibleCamera).length;}
 function exportCsv(){if(!results.length){toast('There are no results to export.',true);return;}const quote=v=>'\"'+String(v).replace(/\"/g,'\"\"')+'\"';const lines=[['IP address','Open TCP ports','Camera-related port','Checked at'],...results.map(r=>[r.ip,r.openPorts.join('; '),r.possibleCamera?'Possible':'No',r.checkedAt])].map(row=>row.map(quote).join(',')).join('\r\n');const url=URL.createObjectURL(new Blob(['\ufeff'+lines],{type:'text/csv;charset=utf-8;'}));const a=document.createElement('a');a.href=url;a.download='ipcam-audit-'+new Date().toISOString().replace(/[:.]/g,'-')+'.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);toast('CSV export prepared.');}
+
+const HISTORY_KEY='ipcamhack.scanHistory.v1';
+let scanHistory=[];
+let selectedGeo=null;
+function saveHistory(entry){
+ scanHistory.unshift(entry);scanHistory=scanHistory.slice(0,20);
+ try{localStorage.setItem(HISTORY_KEY,JSON.stringify(scanHistory));}catch(_){}
+ renderHistory();
+}
+function renderHistory(){
+ const root=$('historyList');if(!root)return;
+ if(!scanHistory.length){root.innerHTML='<div class="empty" style="padding:20px">No saved scans yet.</div>';return;}
+ root.innerHTML=scanHistory.map((item,i)=>'<div class="history-row"><div><strong>'+escapeHtml(item.range)+'</strong><div class="meta">'+escapeHtml(item.at)+' · '+item.scanned+' checked · '+item.found+' hosts</div></div><button class="btn" type="button" data-history="'+i+'">Restore</button></div>').join('');
+ root.querySelectorAll('[data-history]').forEach(btn=>btn.addEventListener('click',()=>{const item=scanHistory[Number(btn.dataset.history)];if(!item)return;results=item.results||[];render();updateStats({scanned:item.scanned,found:item.found});if(item.range.startsWith('Explicit targets: ')){setStatus('Explicit-target results restored · local browser copy');}else{$('range').value=item.range;setStatus('Private-range results restored · local browser copy');}$('lastScan').textContent='Restored · '+item.at;toast('Saved scan results restored.');}));
+}
+async function loadCountries(){
+ try{
+  const response=await fetch('/api/countries');const data=await response.json();if(!response.ok)throw new Error(data.error||'Country catalog unavailable.');
+  $('countryGrid').innerHTML=(data.countries||[]).map(c=>'<label class="country-option"><input type="checkbox" value="'+escapeHtml(c.code)+'"><span>'+escapeHtml(c.code)+' · '+escapeHtml(c.name)+'</span></label>').join('');
+  $('countryStatus').textContent=(data.countries||[]).length+' countries available';
+ }catch(e){$('countryGrid').innerHTML='<span class="tag">Could not load countries. Check the API.</span>';$('countryStatus').textContent=e.message||'Country catalog unavailable';}
+}
+function selectedCountries(){return Array.from(document.querySelectorAll('#countryGrid input[type="checkbox"]:checked')).map(el=>el.value);}
+function renderGeo(geo){
+ const items=[['IP address',geo.ip],['Country',geo.country+' ('+geo.countryCode+')'],['Region',geo.region],['City',geo.city],['ISP',geo.isp],['ASN',geo.asn||'Unavailable'],['Latitude',geo.latitude==null?'Unavailable':geo.latitude],['Longitude',geo.longitude==null?'Unavailable':geo.longitude]];
+ $('geoOutput').innerHTML=items.map(([label,value])=>'<div class="geo-item"><span>'+escapeHtml(label)+'</span><strong>'+escapeHtml(value)+'</strong></div>').join('');
+ const selected=selectedCountries();const match=selected.length===0?'No country filter selected.':selected.includes(geo.countryCode)?'Country matches your selection.':'Country is outside your selected countries.';
+ $('geoCountryMatch').textContent=match;
+}
+$('selectCountries').addEventListener('click',()=>{document.querySelectorAll('#countryGrid input[type="checkbox"]').forEach(el=>el.checked=true);if(selectedGeo)renderGeo(selectedGeo);});
+$('clearCountries').addEventListener('click',()=>{document.querySelectorAll('#countryGrid input[type="checkbox"]').forEach(el=>el.checked=false);if(selectedGeo)renderGeo(selectedGeo);});
+$('countryGrid').addEventListener('change',()=>{if(selectedGeo)renderGeo(selectedGeo);});
+$('geoForm').addEventListener('submit',async e=>{
+ e.preventDefault();const ip=$('geoIp').value.trim();const btn=$('geoBtn');btn.disabled=true;btn.textContent='Looking up…';$('geoOutput').innerHTML='<div class="empty" style="grid-column:1/-1;padding:20px">Querying geolocation provider…</div>';
+ try{const response=await fetch('/api/geo?ip='+encodeURIComponent(ip));const data=await response.json();if(!response.ok)throw new Error(data.error||'Lookup failed.');selectedGeo=data.geo;renderGeo(selectedGeo);toast('Geolocation lookup complete.');}
+ catch(err){$('geoOutput').innerHTML='<div class="empty" style="grid-column:1/-1;padding:20px">'+escapeHtml(err.message||'Lookup failed.')+'</div>';$('geoCountryMatch').textContent='';toast(err.message||'Lookup failed.',true);}
+ finally{btn.disabled=false;btn.textContent='Look up IP details';}
+});
+
+const TARGETS_KEY='ipcamhack.explicitTargets.v1';
+let savedTargets=[];
+try{const parsed=JSON.parse(localStorage.getItem(TARGETS_KEY)||'[]');if(Array.isArray(parsed))savedTargets=parsed.filter(v=>typeof v==='string').slice(0,20);}catch(_){savedTargets=[];}
+function parseTargetInput(value){return [...new Set(value.split(/[\s,;]+/).map(v=>v.trim()).filter(Boolean))];}
+$('saveTargets').addEventListener('click',()=>{
+ const ips=parseTargetInput($('targetIps').value);
+ if(!ips.length||ips.length>20){toast('Enter between 1 and 20 explicit IPv4 addresses.',true);return;}
+ savedTargets=ips;
+ try{localStorage.setItem(TARGETS_KEY,JSON.stringify(savedTargets));toast('Target list saved in this browser.');}
+ catch(_){toast('Could not save targets in browser storage.',true);}
+});
+$('validateSavedTargets').addEventListener('click',()=>{
+ if(!savedTargets.length){toast('Save or enter a target list first.',true);return;}
+ $('targetIps').value=savedTargets.join('\n');
+ $('targetsForm').requestSubmit();
+});
+$('randomTargetSample').addEventListener('click',()=>{
+ const pool=parseTargetInput($('targetIps').value).length?parseTargetInput($('targetIps').value):savedTargets;
+ if(!pool.length){toast('Enter or save explicit targets before sampling.',true);return;}
+ const shuffled=[...pool].sort(()=>Math.random()-.5).slice(0,Math.min(5,pool.length));
+ $('targetIps').value=shuffled.join('\n');
+ $('targetsForm').requestSubmit();
+});
+
+$('targetsForm').addEventListener('submit',async e=>{
+ e.preventDefault();
+ if(!$('targetAuthorized').checked){toast('Confirm authorization for every target.',true);return;}
+ const ips=$('targetIps').value.split(/[\s,;]+/).map(v=>v.trim()).filter(Boolean);
+ if(!ips.length||ips.length>20){toast('Enter between 1 and 20 explicit IPv4 addresses.',true);return;}
+ const btn=$('targetScanBtn');btn.disabled=true;btn.textContent='Assessing targets…';setStatus('Checking explicit authorized targets…');
+ try{
+  const response=await fetch('/api/scan/targets',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ips,countries:selectedCountries(),authorized:true})});
+  const data=await response.json();if(!response.ok)throw new Error(data.error||'Target assessment failed.');
+  results=data.found||[];render();updateStats(data.stats||{});saveHistory({range:'Explicit targets: '+ips.length,at:new Date().toLocaleString(),scanned:data.stats?.scanned||ips.length,found:results.length,results});
+  $('lastScan').textContent='Target assessment · '+new Date(data.stats.lastScanAt).toLocaleString();setStatus('Complete · '+(data.stats.scanned||ips.length)+' explicit targets checked');toast(data.summary||'Assessment complete.');
+ }catch(err){toast(err.message||'Target assessment failed.',true);setStatus('Target assessment failed.');}
+ finally{btn.disabled=false;btn.textContent='Run authorized target checks';}
+});
+
+$('clearHistory').addEventListener('click',()=>{scanHistory=[];try{localStorage.removeItem(HISTORY_KEY);}catch(_){}renderHistory();toast('Browser scan history cleared.');});
+try{const saved=JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]');if(Array.isArray(saved))scanHistory=saved.filter(x=>x&&typeof x.range==='string'&&Array.isArray(x.results)).slice(0,20);}catch(_){scanHistory=[];}
+renderHistory();loadCountries();
+
 $('scanForm').addEventListener('submit',async e=>{
  e.preventDefault();if(!$('authorized').checked){toast('Confirm authorization before scanning.',true);return;}
  const btn=$('scanBtn');btn.disabled=true;btn.textContent='Scanning…';setStatus('Checking private-network ports…');toast('Scan started. This may take a moment.');
- try{const response=await fetch('/api/scan/range',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({range:$('range').value.trim()})});const data=await response.json();if(!response.ok)throw new Error(data.error||'Request failed ('+response.status+')');results=data.found||[];render();updateStats(data.stats||{});$('lastScan').textContent='Last scan · '+new Date(data.stats.lastScanAt).toLocaleString();setStatus('Complete · '+(data.stats.scanned||0)+' addresses checked');toast(data.summary||'Scan complete.');
+ try{const response=await fetch('/api/scan/range',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({range:$('range').value.trim()})});const data=await response.json();if(!response.ok)throw new Error(data.error||'Request failed ('+response.status+')');results=data.found||[];saveHistory({range:$('range').value.trim(),at:new Date().toLocaleString(),scanned:data.stats?.scanned||0,found:results.length,results});render();updateStats(data.stats||{});$('lastScan').textContent='Last scan · '+new Date(data.stats.lastScanAt).toLocaleString();setStatus('Complete · '+(data.stats.scanned||0)+' addresses checked');toast(data.summary||'Scan complete.');
  }catch(err){toast(err.message||'Could not reach the API.',true);setStatus('Scan failed · check the API deployment and range.');}
  finally{btn.disabled=false;btn.innerHTML='⌕ &nbsp; Scan private range';}
 });

@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const net = require('net');
+const http = require('http');
 const path = require('path');
 
 const app = express();
@@ -93,12 +94,60 @@ async function mapLimit(items, limit, fn) {
   await Promise.all(workers);
   return out;
 }
+const BRAND_SIGNATURES = [
+  [/Hikvision/i, 'Hikvision'], [/Dahua/i, 'Dahua'], [/TP-Link/i, 'TP-Link'],
+  [/Xiaomi/i, 'Xiaomi'], [/Axis/i, 'Axis'], [/Sony/i, 'Sony'],
+  [/Panasonic/i, 'Panasonic'], [/Bosch/i, 'Bosch'], [/Samsung/i, 'Samsung'],
+  [/Vivotek/i, 'Vivotek'], [/Reolink/i, 'Reolink'], [/Amcrest/i, 'Amcrest'],
+  [/Ubiquiti/i, 'Ubiquiti'], [/Hanwha/i, 'Hanwha']
+];
+
+// Passive HTTP banner fingerprinting only: no login attempts and no stream access.
+function fingerprintHttp(ip, port) {
+  if (![80, 443, 8000, 8080].includes(port)) {
+    return Promise.resolve({ brand: 'Unknown', service: port === 554 || port === 8554 ? 'RTSP' : 'TCP service', server: null });
+  }
+  return new Promise(resolve => {
+    const transport = port === 443 ? https : http;
+    let settled = false;
+    let body = '';
+    const finish = value => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+    const request = transport.get({
+      hostname: ip, port, path: '/', method: 'GET', timeout: 1800,
+      headers: { 'User-Agent': 'IpCamHack-Authorized-Research/4.1', 'Accept': 'text/html,application/json,text/plain;q=0.8,*/*;q=0.1' },
+      ...(port === 443 ? { rejectUnauthorized: false } : {})
+    }, response => {
+      const server = typeof response.headers.server === 'string' ? response.headers.server.slice(0, 160) : null;
+      response.setEncoding('utf8');
+      response.on('data', chunk => {
+        body += chunk;
+        if (body.length >= 8192) request.destroy();
+      });
+      response.on('end', () => {
+        const sample = body + ' ' + (server || '');
+        const match = BRAND_SIGNATURES.find(([pattern]) => pattern.test(sample));
+        finish({ brand: match ? match[1] : 'Unknown', service: 'HTTP ' + response.statusCode, server });
+      });
+      response.on('error', () => finish({ brand: 'Unknown', service: 'HTTP', server }));
+    });
+    request.on('timeout', () => request.destroy());
+    request.on('error', () => finish({ brand: 'Unknown', service: 'HTTP', server: null }));
+    request.end();
+  });
+}
+
 async function inspectHost(ip) {
   const checks = await Promise.all(PORTS.map(async port => (await checkPort(ip, port)) ? port : null));
   const openPorts = checks.filter(Boolean);
   if (!openPorts.length) return null;
+  const webPort = openPorts.find(port => [80, 443, 8000, 8080].includes(port));
+  const fingerprint = webPort ? await fingerprintHttp(ip, webPort) : { brand: 'Unknown', service: 'RTSP/TCP service', server: null };
   return {
-    ip, openPorts,
+    ip, openPorts, brand: fingerprint.brand, service: fingerprint.service, server: fingerprint.server,
     possibleCamera: openPorts.some(p => [554, 8554, 37777].includes(p)),
     checkedAt: new Date().toISOString()
   };
@@ -244,8 +293,10 @@ app.post('/api/scan/targets', async (req, res) => {
       const checks = await Promise.all(PORTS.map(async port => (await checkPort(ip, port)) ? port : null));
       const openPorts = checks.filter(Boolean);
       if (!openPorts.length) return null;
+      const webPort = openPorts.find(port => [80, 443, 8000, 8080].includes(port));
+      const fingerprint = webPort ? await fingerprintHttp(ip, webPort) : { brand: 'Unknown', service: 'RTSP/TCP service', server: null };
       return {
-        ip, openPorts,
+        ip, openPorts, brand: fingerprint.brand, service: fingerprint.service, server: fingerprint.server,
         possibleCamera: openPorts.some(p => [554, 8554, 37777].includes(p)),
         geo: geo ? { country: geo.country, countryCode: geo.countryCode, city: geo.city, isp: geo.isp } : null,
         checkedAt: new Date().toISOString()

@@ -10,6 +10,7 @@ A monochrome, animated dashboard for authorized IP-camera/network inventory and 
 - Filterable results, scan statistics, clear action, CSV export, and health endpoint.
 - Restored APNIC 44-country selector with select/deselect controls.
 - Manual public IPv4 geolocation lookup (country, region, city, ISP, ASN, coordinates) with country-selection comparison.
+- Bounded assessment of up to 20 explicitly supplied public IPv4 addresses with a required authorization confirmation and optional country-code filter; it checks ports only and does not attempt authentication.
 - Browser-local scan history (last 20 scans) with restore and clear controls; history remains on that browser/device.
 - Rejects public IP targets and scan ranges larger than 256 addresses.
 - No credential guessing, password collection, or camera-feed interception.
@@ -53,6 +54,7 @@ The Vercel deployment can host the dashboard and health/status API, but it canno
 - `GET /api/countries` — APNIC region country-code/name catalog.
 - `GET /api/geo?ip=8.8.8.8` — geolocation for one manually supplied public IPv4 address; uses the external ipwho.is service. Private/reserved targets are rejected.
 - `POST /api/scan/range` — local-only TCP port inventory; JSON body: `{"range":"192.168.1.0/24"}`.
+- `POST /api/scan/targets` — bounded checks for 1–20 explicitly supplied public IPv4 addresses; JSON body: `{"ips":["8.8.8.8"],"countries":["US"],"authorized":true}`. Requires explicit authorization confirmation and does not accept CIDRs, random targets, or credentials.
 - `POST /api/clear` — clear in-memory results.
 
 Scan history is stored in the browser's local storage and does not sync between devices. Geolocation lookups send the entered public IP to ipwho.is; do not submit an address you do not want shared with that provider. Country selection only compares the manually looked-up IP and never starts a country-wide scan.

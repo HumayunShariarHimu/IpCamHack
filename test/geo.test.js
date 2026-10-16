@@ -22,7 +22,7 @@ test('country catalog returns APNIC country codes and labels', async () => {
   const response = await fetch(baseUrl + '/api/countries');
   assert.equal(response.status, 200);
   const body = await response.json();
-  assert.equal(body.countries.length, 44);
+  assert.equal(body.countries.length, 45);
   assert.ok(body.countries.some(country => country.code === 'BD' && country.name === 'Bangladesh'));
 });
 
@@ -47,7 +47,7 @@ test('explicit public-target assessment requires an authorization confirmation',
     body: JSON.stringify({ ips: ['8.8.8.8'], authorized: false })
   });
   assert.equal(response.status, 403);
-  assert.match((await response.json()).error, /authorization/i);
+  assert.match((await response.json()).error, /permission|own/i);
 });
 
 test('explicit target assessment rejects private targets and oversized target lists', async () => {

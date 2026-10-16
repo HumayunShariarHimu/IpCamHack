@@ -285,7 +285,7 @@ $('publicRangeForm').addEventListener('submit',async e=>{
   const response=await fetch('/api/scan/public-range',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({range,countries:selectedCountries(),authorized:true})});
   const data=await response.json();if(!response.ok)throw new Error(data.error||'Public-range assessment failed.');
   results=data.found||[];render();updateStats(data.stats||{});saveHistory({range,kind:'public-range',at:new Date().toLocaleString(),scanned:data.stats?.scanned||0,found:results.length,results});
-  $('lastScan').textContent='Public range · '+new Date(data.stats.lastScanAt).toLocaleString();setStatus('Complete · '+(data.stats.scanned||0)+' scoped addresses checked');toast(data.summary||'Public-range assessment complete.');
+  $('lastScan').textContent='Public range · '+new Date(data.stats.lastScanAt).toLocaleString();setStatus('Complete · '+(data.stats.scanned||0)+' scoped addresses checked');toast((data.summary||'Public-range assessment complete.')+(data.countryFilterStats&&data.countryFilterStats.selected?' Country filter: '+data.countryFilterStats.matched+' matched, '+data.countryFilterStats.excluded+' excluded, '+data.countryFilterStats.lookupFailed+' geolocation lookup failures.':''));
  }catch(err){toast(err.message||'Public-range assessment failed.',true);setStatus('Public-range assessment failed.');}
  finally{btn.disabled=false;btn.textContent='Run authorized public-range assessment';}
 });
@@ -300,7 +300,7 @@ $('targetsForm').addEventListener('submit',async e=>{
   const response=await fetch('/api/scan/targets',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ips,countries:selectedCountries(),authorized:true})});
   const data=await response.json();if(!response.ok)throw new Error(data.error||'Target assessment failed.');
   results=data.found||[];render();updateStats(data.stats||{});saveHistory({range:'Explicit targets: '+ips.length,targets:ips,kind:'targets',at:new Date().toLocaleString(),scanned:data.stats?.scanned||ips.length,found:results.length,results});
-  $('lastScan').textContent='Target assessment · '+new Date(data.stats.lastScanAt).toLocaleString();setStatus('Complete · '+(data.stats.scanned||ips.length)+' explicit targets checked');toast(data.summary||'Assessment complete.');
+  $('lastScan').textContent='Target assessment · '+new Date(data.stats.lastScanAt).toLocaleString();setStatus('Complete · '+(data.stats.scanned||ips.length)+' explicit targets checked');toast((data.summary||'Assessment complete.')+(data.countryFilterStats&&data.countryFilterStats.selected?' Country filter: '+data.countryFilterStats.matched+' matched, '+data.countryFilterStats.excluded+' excluded, '+data.countryFilterStats.lookupFailed+' geolocation lookup failures.':''));
  }catch(err){toast(err.message||'Target assessment failed.',true);setStatus('Target assessment failed.');}
  finally{btn.disabled=false;btn.textContent='Run authorized target checks';}
 });

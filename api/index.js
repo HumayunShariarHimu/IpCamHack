@@ -18,10 +18,12 @@ app.use((req, res, next) => {
 });
 app.use(express.static(path.join(__dirname, '..', 'public'), { index: 'index.html' }));
 
-const PORTS = [80, 443, 554, 8000, 8080, 8554, 37777];
+const PORTS = [21, 22, 23, 25, 53, 80, 81, 110, 135, 139, 143, 389, 443, 445, 554, 587, 631, 993, 995, 1433, 1883, 3306, 3389, 5000, 5001, 5432, 554, 5900, 6379, 8000, 8080, 8081, 8443, 8554, 8888, 9000, 9001, 9090, 10000, 27017, 37777, 50000, 55554].filter((p, i, a) => a.indexOf(p) === i);
 const TIMEOUT_MS = 900;
 const MAX_HOSTS = 256;
 const MAX_CONCURRENT = 24;
+const MAX_PORT_CONCURRENT = 128;
+const FULL_TCP_PORTS = Array.from({ length: 65535 }, (_, i) => i + 1);
 let stats = { scanned: 0, found: 0, lastScanAt: null };
 let foundCameras = [];
 let scanInProgress = false;
@@ -72,7 +74,7 @@ function expandRange(input) {
   }
   return [range];
 }
-function checkPort(ip, port) {
+function checkPort(ip, port, timeoutMs = TIMEOUT_MS) {
   return new Promise(resolve => {
     const socket = new net.Socket();
     let settled = false;
@@ -83,8 +85,8 @@ function checkPort(ip, port) {
       socket.destroy();
       resolve(open);
     };
-    const timer = setTimeout(() => finish(false), TIMEOUT_MS);
-    socket.setTimeout(TIMEOUT_MS, () => finish(false));
+    const timer = setTimeout(() => finish(false), timeoutMs);
+    socket.setTimeout(timeoutMs, () => finish(false));
     socket.once('connect', () => finish(true));
     socket.once('error', () => finish(false));
     socket.connect(port, ip);
@@ -148,8 +150,8 @@ function fingerprintHttp(ip, port) {
   });
 }
 
-async function inspectHost(ip) {
-  const checks = await Promise.all(PORTS.map(async port => (await checkPort(ip, port)) ? port : null));
+async function inspectHost(ip, ports = PORTS, portConcurrency = MAX_PORT_CONCURRENT) {
+  const checks = await mapLimit(ports, portConcurrency, async port => (await checkPort(ip, port, ports === FULL_TCP_PORTS ? 400 : TIMEOUT_MS)) ? port : null);
   const openPorts = checks.filter(Boolean);
   if (!openPorts.length) return null;
   const webPort = openPorts.find(port => [80, 443, 8000, 8080].includes(port));
@@ -291,17 +293,21 @@ app.post('/api/scan/range', async (req, res) => {
   let hosts;
   try {
     hosts = expandRange(req.body && req.body.range);
+    if (req.body && req.body.fullPortScan === true && hosts.length !== 1) {
+      return res.status(400).json({ error: 'Full TCP port scan (1–65535) is limited to one explicit private IPv4 host per run.' });
+    }
     if (!hosts.length) return res.status(400).json({ error: 'No private addresses were found in that range.' });
   } catch (error) {
     return res.status(400).json({ error: error.message || 'Invalid range.' });
   }
   scanInProgress = true;
   try {
-    const results = (await mapLimit(hosts, MAX_CONCURRENT, inspectHost)).filter(Boolean);
+    const fullPortScan = req.body && req.body.fullPortScan === true;
+    const results = (await mapLimit(hosts, fullPortScan ? 1 : MAX_CONCURRENT, ip => inspectHost(ip, fullPortScan ? FULL_TCP_PORTS : PORTS, MAX_PORT_CONCURRENT))).filter(Boolean);
     foundCameras = results;
     stats = { scanned: hosts.length, found: results.length, lastScanAt: new Date().toISOString() };
     return res.json({
-      summary: 'Checked ' + hosts.length + ' authorized private-network address(es); ' + results.length + ' host(s) have camera-related ports open.',
+      summary: 'Checked ' + hosts.length + ' authorized private-network address(es) across ' + (fullPortScan ? 'all 65,535 TCP ports' : PORTS.length + ' common service ports') + '; ' + results.length + ' host(s) responded on monitored ports.',
       found: results, stats
     });
   } catch (_error) {

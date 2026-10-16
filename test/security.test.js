@@ -60,3 +60,17 @@ test('clear endpoint resets in-memory results and stats', async () => {
     await new Promise(resolve => server.close(resolve));
   }
 });
+
+test('local root route serves the dashboard', async () => {
+  const server = app.listen(0);
+  try {
+    const response = await fetch('http://127.0.0.1:' + server.address().port + '/');
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get('content-type') || '', /text\/html/i);
+    const html = await response.text();
+    assert.match(html, /IpCamHack/);
+    assert.match(html, /exportBtn/);
+  } finally {
+    await new Promise(resolve => server.close(resolve));
+  }
+});

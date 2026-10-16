@@ -8,6 +8,14 @@ const app = express();
 app.disable('x-powered-by');
 app.use(cors({ origin: process.env.CORS_ORIGIN || false }));
 app.use(express.json({ limit: '16kb' }));
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  if (req.path.startsWith('/api/')) res.setHeader('Cache-Control', 'no-store');
+  next();
+});
 app.use(express.static(path.join(__dirname, '..', 'public'), { index: 'index.html' }));
 
 const PORTS = [80, 443, 554, 8000, 8080, 8554, 37777];
@@ -177,18 +185,20 @@ const APNIC_COUNTRIES = [
 
 function isPublicIPv4(ip) {
   if (net.isIP(ip) !== 4) return false;
-  const [a,b,c] = ip.split('.').map(Number);
+  const [a, b, c] = ip.split('.').map(Number);
+  // Be conservative: only globally routable IPv4 addresses may be submitted
+  // to the public-target geolocation and passive service-inventory endpoints.
   if (a === 0 || a === 10 || a === 127 || a >= 224) return false;
-  if (a === 100 && b >= 64 && b <= 127) return false;
-  if (a === 169 && b === 254) return false;
-  if (a === 172 && b >= 16 && b <= 31) return false;
-  if (a === 192 && b === 168) return false;
-  if (a === 192 && b === 0 && c === 0) return false;
-  if (a === 192 && b === 0 && c === 2) return false;
-  if (a === 192 && b === 88 && c === 99) return false;
-  if (a === 198 && (b === 18 || b === 19)) return false;
-  if (a === 198 && b === 51 && c === 100) return false;
-  if (a === 203 && b === 0 && c === 113) return false;
+  if (a === 100 && b >= 64 && b <= 127) return false; // shared address space
+  if (a === 169 && b === 254) return false; // link-local
+  if (a === 172 && b >= 16 && b <= 31) return false; // private
+  if (a === 192 && b === 168) return false; // private
+  if (a === 192 && b === 0) return false; // IETF protocol assignments
+  if (a === 192 && b === 0 && c === 2) return false; // documentation
+  if (a === 192 && b === 88 && c === 99) return false; // deprecated relay
+  if (a === 198 && (b === 18 || b === 19)) return false; // benchmarking
+  if (a === 198 && b === 51 && c === 100) return false; // documentation
+  if (a === 203 && b === 0 && c === 113) return false; // documentation
   return true;
 }
 

@@ -1,6 +1,5 @@
 {
   "name": "ipcamhack",
-  "version": "4.1.0",
   "description": "IpCamHack - authorized camera inventory, passive fingerprinting, and network diagnostics",
   "main": "api/index.js",
   "scripts": {

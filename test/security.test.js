@@ -1,6 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const app = require('../api/index.js');
+const fs = require('node:fs');
+const vm = require('node:vm');
 
 test('health endpoint reports service readiness', async () => {
   const server = app.listen(0);
@@ -10,7 +12,7 @@ test('health endpoint reports service readiness', async () => {
     assert.equal(response.status, 200);
     const data = await response.json();
     assert.equal(data.ok, true);
-    assert.equal(data.version, '4.0.0');
+    assert.equal(data.version, '4.1.0');
   } finally {
     await new Promise(resolve => server.close(resolve));
   }
@@ -90,5 +92,15 @@ test('hosted serverless mode refuses private-LAN scans', async () => {
     await new Promise(resolve => server.close(resolve));
     if (original === undefined) delete process.env.VERCEL;
     else process.env.VERCEL = original;
+  }
+});
+
+
+test('dashboard inline JavaScript parses before it is served', () => {
+  const html = fs.readFileSync(require.resolve('../public/index.html'), 'utf8');
+  const scripts = [...html.matchAll(/<script(?:\\s[^>]*)?>([\\s\\S]*?)<\\/script>/gi)];
+  assert.ok(scripts.length > 0, 'dashboard should include an inline script');
+  for (const [index, match] of scripts.entries()) {
+    assert.doesNotThrow(() => new vm.Script(match[1], { filename: 'dashboard-inline-' + index + '.js' }));
   }
 });

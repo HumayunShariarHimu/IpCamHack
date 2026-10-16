@@ -1,7 +1,7 @@
 {
   "name": "ipcamhack",
-  "version": "4.0.0",
-  "description": "IpCamHack - authorized private-network camera inventory and diagnostics",
+  "version": "4.1.0",
+  "description": "IpCamHack - authorized camera inventory, passive fingerprinting, and network diagnostics",
   "main": "api/index.js",
   "scripts": {
     "start": "node api/index.js",

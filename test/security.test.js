@@ -12,7 +12,6 @@ test('health endpoint reports service readiness', async () => {
     assert.equal(response.status, 200);
     const data = await response.json();
     assert.equal(data.ok, true);
-    assert.equal(data.version, '4.1.0');
   } finally {
     await new Promise(resolve => server.close(resolve));
   }
@@ -95,6 +94,26 @@ test('hosted serverless mode refuses private-LAN scans', async () => {
   }
 });
 
+
+test('country catalog is available for the country filter', async () => {
+  const server = app.listen(0);
+  try {
+    const response = await fetch('http://127.0.0.1:' + server.address().port + '/api/countries');
+    assert.equal(response.status, 200);
+    const data = await response.json();
+    assert.ok(Array.isArray(data.countries));
+    assert.ok(data.countries.some(country => country.code === 'BD'));
+    assert.ok(data.countries.every(country => /^[A-Z]{2}$/.test(country.code)));
+  } finally {
+    await new Promise(resolve => server.close(resolve));
+  }
+});
+
+test('dashboard has no visible version badge and explains country filtering', () => {
+  const html = fs.readFileSync(require.resolve('../public/index.html'), 'utf8');
+  assert.doesNotMatch(html, /IpCamHack\s*[·-]\s*v\d|class="badge"/i);
+  assert.match(html, /Selected countries filter authorized public-range and explicit-target scans/);
+});
 
 test('dashboard inline JavaScript parses before it is served', () => {
   const html = fs.readFileSync(require.resolve('../public/index.html'), 'utf8');

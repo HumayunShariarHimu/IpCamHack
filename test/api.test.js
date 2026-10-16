@@ -123,3 +123,12 @@ test('dashboard exposes a guarded full TCP scan option and explains country filt
   assert.match(html, /all 65,535 TCP ports/);
   assert.match(html, /Country selection is a filter, not a target generator/);
 });
+
+
+test('dashboard explains country-filter behavior and exposes scan diagnostics', async () => {
+  const response = await get('/');
+  const html = await response.text();
+  assert.match(html, /Country selection is a filter, not a target generator/);
+  assert.match(html, /countryFilterStats\.lookupFailed/);
+  assert.match(html, /Full TCP port scan/);
+});

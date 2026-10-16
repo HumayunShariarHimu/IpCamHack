@@ -98,7 +98,7 @@ test('hosted serverless mode refuses private-LAN scans', async () => {
 
 test('dashboard inline JavaScript parses before it is served', () => {
   const html = fs.readFileSync(require.resolve('../public/index.html'), 'utf8');
-  const scripts = [...html.matchAll(/<script(?:\\s[^>]*)?>([\\s\\S]*?)<\\/script>/gi)];
+  const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)];
   assert.ok(scripts.length > 0, 'dashboard should include an inline script');
   for (const [index, match] of scripts.entries()) {
     assert.doesNotThrow(() => new vm.Script(match[1], { filename: 'dashboard-inline-' + index + '.js' }));
